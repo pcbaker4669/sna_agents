@@ -1,0 +1,8 @@
+triangles(G, nodes=None) - having trouble with this one with directed
+
+Graph.neighbors(n)
+
+clustering(G, nodes=None, weight=None)
+
+transitivity(G) - Possible triangles are identified by the number of
+“triads” (two edges with a shared vertex).
