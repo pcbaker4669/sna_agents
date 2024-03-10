@@ -1,8 +1,28 @@
-triangles(G, nodes=None) - having trouble with this one with directed
+We start with 3 nodes, the nodes will have scores of:
+    interaction, similar_words
 
-Graph.neighbors(n)
+Likes should have the source of the like, but for simplicity, that
+is not added. Comparing scores simply is an interaction to interaction
+distance, the closer to zero, the closer the match when comparing
 
-clustering(G, nodes=None, weight=None)
+Popularity of a video is used by finding the average interaction score and
+everything above that score is considered popular.
 
-transitivity(G) - Possible triangles are identified by the number of
-“triads” (two edges with a shared vertex).
+Every round:
+A video is created
+    Calculate interactions average on the network
+A video is added. (after initial 3 nodes created)
+    The new video is created with only "similar words" score and interactions 0.
+    And existing node will be picked to point to the new node via similar words.
+    Two other edges will be formed so the new video is recommending existing videos.
+    This will be by similar words "only" for one, and similar words combined with
+    the highest interaction threshold with the other.
+One edge will "move"
+    A random edge will be removed
+    A list of nodes with no edges will be prepared and the most favored video by
+    interaction will be selected as a target, the node with the most similar words
+    will be the source
+Score update
+    increase interaction score based on the "in-degree".  Need "in-degree" examples
+    for a better idea
+
