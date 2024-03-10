@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import *
 from tkinter import messagebox
+
 import random
 import sys
 import g_utils
@@ -36,8 +37,25 @@ root.protocol('WM_DELETE_WINDOW', on_closing)
 fig = plt.figure(frameon=False, figsize=(5, 3), dpi=100)
 canvas = FigureCanvasTkAgg(fig, root)
 
+dataFrm = tk.Frame(root, width=100)
+dataFrm.pack(padx=10, pady=10, side="right")
+
 componentFrm = tk.Frame(root, height=compFrmHt)
 componentFrm.pack(padx=10, pady=10, side="bottom")
+
+# ----------------- Data Frame --------------------
+listbox = Listbox(dataFrm, height=10,
+                  width=15,
+                  bg="grey",
+                  activestyle='dotbox',
+                  font="Helvetica",
+                  fg="yellow")
+
+lstLbl = Label(dataFrm, text="Clusters")
+
+# pack the widgets
+lstLbl.pack()
+listbox.pack()
 
 # ----------------- Button Frame -------------------
 btnFrm = tk.Frame(componentFrm)
@@ -76,7 +94,6 @@ g = nx.DiGraph()
 
 
 def draw_graph():
-
     node_val_lbl.config(text=f"{len(g.nodes)}")
     edge_val_lbl.config(text=f"{len(g.edges)}")
 
@@ -89,6 +106,13 @@ def draw_graph():
             tran_val_lbl.config(text="{:.4f}".format(tra_cnt))
             clus = nx.clustering(g)
             print("clustering = ", clus)
+            listbox.delete(0, END)
+            keys = list(clus.keys())
+            cnt = 1
+            for k in keys:
+                s = "{}, {:.4f}".format(k, clus[k])
+                listbox.insert(cnt, s)
+                cnt += 1
 
     canvas.draw()
 
@@ -99,16 +123,19 @@ def reset_canvas():
     fig.set_facecolor("black")
 
 
+mlist = range(2, 99)
+mlist_idx = 0
+
+
 def setup():
     reset_canvas()
     g.clear()
-    g.add_edge(1, random.choice(mlist))
+    g.add_edge(1, mlist[1])
     plt.gca().set_facecolor("grey")
     fig.set_facecolor("black")
     draw_graph()
 
 
-mlist = range(2, 99)
 setup()
 canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=True)
 
@@ -119,6 +146,7 @@ def add_node_to_graph():
     # eventually make less random by attributes
     nlist = list(g.nodes)
     g.add_edge(random.choice(nlist), random.choice(mlist))
+
     draw_graph()
 
 
