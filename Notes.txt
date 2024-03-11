@@ -17,12 +17,10 @@ A video is added. (after initial 3 nodes created)
     Two other edges will be formed so the new video is recommending existing videos.
     This will be by similar words "only" for one, and similar words combined with
     the highest interaction threshold with the other.
-One edge will "move"
+One edge will removed
     A random edge will be removed
-    A list of nodes with no edges will be prepared and the most favored video by
-    interaction will be selected as a target, the node with the most similar words
-    will be the source
+    Find stale nodes with interaction of >= 1 but less than interaction_avg
+    take the node with the stalest interaction, randomly grab one of the edges and remove it
 Score update
-    increase interaction score based on the "in-degree".  Need "in-degree" examples
-    for a better idea
+    increase interaction score based on the "in-degree".
 

@@ -10,54 +10,83 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import *
 from tkinter import messagebox
+from tkinter import ttk
 import agent as ag
-
-import random
-import sys
-import g_utils
-
+import ui
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg
+)
+import random as rnd
 btnWt = 20
 lblWt = 10
 compFrmHt = 100
 kVal = 25
 new_edges_per_new_node = 3
 
-from matplotlib.backends.backend_tkagg import (
-    FigureCanvasTkAgg
-)
-
 
 def on_closing():
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
-        sys.exit()
+        root.quit()
 
 
 root = Tk()
 root.title("cc agents")
 root.protocol('WM_DELETE_WINDOW', on_closing)
 
+# Creating Menubar
+menubar = Menu(root)
+
+# Adding File Menu and commands
+file = Menu(menubar, tearoff=0)
+menubar.add_cascade(label='File', menu=file)
+file.add_command(label='New File', command=None)
+file.add_command(label='Open...', command=None)
+file.add_command(label='Save', command=None)
+file.add_separator()
+file.add_command(label='Exit', command=root.destroy)
+
+# Adding Edit Menu and commands
+edit = Menu(menubar, tearoff=0)
+menubar.add_cascade(label='Edit', menu=edit)
+edit.add_command(label='Cut', command=None)
+edit.add_command(label='Copy', command=None)
+edit.add_command(label='Paste', command=None)
+edit.add_command(label='Select All', command=None)
+edit.add_separator()
+edit.add_command(label='Find...', command=None)
+edit.add_command(label='Find again', command=None)
+
+# Adding Help Menu
+help_ = Menu(menubar, tearoff=0)
+menubar.add_cascade(label='Help', menu=help_)
+help_.add_command(label='Tk Help', command=None)
+help_.add_command(label='Demo', command=None)
+help_.add_separator()
+help_.add_command(label='About Tk', command=None)
+
+# display Menu
+root.config(menu=menubar)
+
 fig = plt.figure(frameon=False, figsize=(5, 3), dpi=100)
 canvas = FigureCanvasTkAgg(fig, root)
 
-dataFrm = tk.Frame(root, width=100)
-dataFrm.pack(padx=10, pady=10, side="right")
+tabControl = ttk.Notebook(root)
+clusterTab = ttk.Frame(tabControl)
+degreeTab = ttk.Frame(tabControl)
+scoresTab = ttk.Frame(tabControl)
+
+tabControl.add(clusterTab, text="Clustering")
+tabControl.add(degreeTab, text="Degree")
+tabControl.add(scoresTab, text="Scores")
+tabControl.pack(side="right", padx=10, expand=1, fill="both")
 
 componentFrm = tk.Frame(root, height=compFrmHt)
 componentFrm.pack(padx=10, pady=10, side="bottom")
 
-# ----------------- Data Frame --------------------
-listbox = Listbox(dataFrm, height=10,
-                  width=15,
-                  bg="grey",
-                  activestyle='dotbox',
-                  font="Helvetica",
-                  fg="yellow")
-
-lstLbl = Label(dataFrm, text="Clusters")
-
-# pack the widgets
-lstLbl.pack()
-listbox.pack()
+# ----------------- Notebook (tab1) --------------------
+cluster_listbox = ui.make_lst_box(clusterTab, "Clustering: Node, C.C.")
+degree_listbox = ui.make_lst_box(degreeTab, "Degree: Node, In-Degree")
+score_listbox = ui.make_lst_box(scoresTab, "Scores: Node, Int, Wrds, Tck")
 
 # ----------------- Button Frame -------------------
 btnFrm = tk.Frame(componentFrm)
@@ -65,13 +94,9 @@ btnFrm.pack(padx=10, pady=10, side="right")
 setupBtn = tk.Button(btnFrm, text="Setup", width=btnWt,
                      command=lambda: setup())
 setupBtn.pack(side="top")
-addNodeBtn = tk.Button(btnFrm, text="Add Node", width=btnWt,
+addNodeBtn = tk.Button(btnFrm, text="Step", width=btnWt,
                        command=lambda: add_node_to_graph())
 addNodeBtn.pack(side="top")
-
-addEdgeBtn = tk.Button(btnFrm, text="Add Edge", width=btnWt,
-                       command=lambda: add_edge_to_graph())
-addEdgeBtn.pack(side="bottom")
 
 # ----------------- Info Frame -------------------
 infoFrm = tk.Frame(componentFrm)
@@ -105,18 +130,35 @@ def draw_graph():
                      with_labels=True, node_size=100, node_color="green")
     if len(g.edges) > 3:
         tra_cnt = nx.transitivity(g)
-        #print("tri_cnt = ", tra_cnt)
+
         if tra_cnt is not None:
             tran_val_lbl.config(text="{:.4f}".format(tra_cnt))
             clus = nx.clustering(g)
-            #print("clustering = ", clus)
-            listbox.delete(0, END)
+            cluster_listbox.delete(0, END)
             keys = list(clus.keys())
             cnt = 1
             for k in keys:
-                s = "{}, {:.4f}".format(k, clus[k])
-                listbox.insert(cnt, s)
+                s = "N: {}, C.C. {:.4f}".format(k, clus[k])
+                cluster_listbox.insert(cnt, s)
                 cnt += 1
+        # degree stuff
+        lst = cc_model.get_node_name_lst()
+
+        dlst = g.in_degree(lst)
+        degree_listbox.delete(0, END)
+        cnt = 1
+        for d in dlst:
+            s = "N: {}, In-D: {}".format(d[0], d[1])
+            degree_listbox.insert(cnt, s)
+            cnt += 1
+        slst = cc_model.get_node_name_score_lst()
+        score_listbox.delete(0, END)
+
+        cnt = 1
+        for s in slst:
+            score_listbox.insert(cnt, s)
+            cnt += 1
+
 
     canvas.draw()
 
@@ -128,6 +170,7 @@ def reset_canvas():
 
 
 def setup():
+    cc_model.reset()
     reset_canvas()
     g.clear()
     n1 = cc_model.create_starter_node()
@@ -151,7 +194,7 @@ def add_node_to_graph():
     reset_canvas()
     n_new = cc_model.create_rnd_node()
     # nrp will be the parent that picks you based on similar words
-    nrp = cc_model.get_closest_match(n_new)
+    nrp = cc_model.get_closest_match(n_new, [])
     # nr2 and nr3 will be recs that your video provides
     # nr2 will be above average interactions and similar words
     nr2 = cc_model.get_most_popular_match(n_new, [nrp])
@@ -164,24 +207,26 @@ def add_node_to_graph():
     print("new to rec1: {} -> {}".format(n_new.get_name(), nr2.get_name()))
     g.add_edge(n_new.get_name(), nr3.get_name())
     print("new to rec2: {} -> {}".format(n_new.get_name(), nr3.get_name()))
-    lst = cc_model.get_node_name_lst()
-    print("list of nodes: ", lst)
-    dlst = g.in_degree(lst)
-    print("degrees: ", list(dlst))
-    draw_graph()
+    n_new.update_node_interaction(g.in_degree(n_new.get_name()), cc_model.get_count())
+    nr2.update_node_interaction(g.in_degree(nr2.get_name()), cc_model.get_count())
+    nr3.update_node_interaction(g.in_degree(nr3.get_name()), cc_model.get_count())
+    # remove old edge here (don't remove n_new
+    stalest_node = cc_model.get_stale_node()
+    # get edges from node (in only)
+    if stalest_node is not None:
+        stale_node_name = stalest_node.get_name()
+        edges_in = list(g.in_edges(stale_node_name))
+        if len(edges_in) > 0:
+            print("edges in stalest node: ", edges_in)
+            u, v = rnd.choice(edges_in)
+            g.remove_edge(u, v)
+            stalest_node.update_node_interaction(g.in_degree(stale_node_name))
+            print("removing in edge from stalest node {}".format(
+                  stalest_node.get_name()))
 
-
-def add_edge_to_graph():
-    reset_canvas()
-    # get node from graph and randomly select
-    n2 = cc_model.get_rnd_node()
-    # eventually make less random by attributes
-    n1 = cc_model.get_rec_node(n2)
-    if n1 is None:
-        print("Can't add node in add_edge_to_graph")
-        return
-    print("Adding edge ({}, {})".format(n1.get_name(), n2.get_name()))
-    g.add_edge(n1.get_name(), n2.get_name())
+    else:
+        print("there are no stale nodes yet")
+    # select random edge and delete
     draw_graph()
 
 
