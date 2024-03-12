@@ -22,7 +22,7 @@ lblWt = 10
 compFrmHt = 100
 kVal = 25
 new_edges_per_new_node = 3
-
+# change somethign
 
 def on_closing():
     if messagebox.askokcancel("Quit", "Do you want to quit?"):
