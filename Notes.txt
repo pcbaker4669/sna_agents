@@ -9,18 +9,26 @@ Popularity of a video is used by finding the average interaction score and
 everything above that score is considered popular.
 
 Every round:
-A video is created
-    Calculate interactions average on the network
-A video is added. (after initial 3 nodes created)
+
+A video is added. (after initial 3 nodes created with 2 edges)
     The new video is created with only "similar words" score and interactions 0.
     And existing node will be picked to point to the new node via similar words.
     Two other edges will be formed so the new video is recommending existing videos.
-    This will be by similar words "only" for one, and similar words combined with
-    the highest interaction threshold with the other.
-One edge will removed
-    A random edge will be removed
-    Find stale nodes with interaction of >= 1 but less than interaction_avg
-    take the node with the stalest interaction, randomly grab one of the edges and remove it
+    One edge will pick a node by similar words "only"
+    The second edge will pick a node based on similar words combined with
+    the above average interaction threshold with the other.
+One edge will removed.
+    An edge will be removed based on how "stale" a video becomes as well as its
+    popularity.
+    Find a stale nodes with less than average interactions (which is calculated
+    each tick).
+    The interactions must have as least "min_interactions" which is also the
+    number of in-degree (default 1)
+    The node won't be selected for "stale" until it reaches an age threshold
+    called "refresh_threshold"
+    If above conditions are met, the node with the oldest refresh date
+    is selected the one of the in-edges are randomly selected and removed
 Score update
     increase interaction score based on the "in-degree".
-
+    When nodes get recommended, their refresh date is updated
+    Calculate interactions average on the network

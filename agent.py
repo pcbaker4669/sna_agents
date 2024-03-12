@@ -43,9 +43,16 @@ class Agent:
 
 class CC_Model:
 
-    def __init__(self):
+    def __init__(self, refresh_threshold=3, min_interactions=2):
         self.count = 0
+        # used in get most popular node, when creating a node, the new
+        # node's edge points to one node that is above average and similar
+        # 2nd edge points to most similar
         self.interactions_avg = 0
+        # the node can sit this many ticks before it can be stale
+        self.refresh_threshold = refresh_threshold
+        # the node must have at least this many interactions before being stale
+        self.min_interactions = min_interactions
         self.nodes = []
 
     def reset(self):
@@ -60,8 +67,8 @@ class CC_Model:
         stalest_node_val = self.count
         stalest_node = None
         for n in self.nodes:
-            if self.interactions_avg >= n.get_interactions() >= 1:
-                if stalest_node_val >= n.get_refresh_date():
+            if self.interactions_avg >= n.get_interactions() >= self.min_interactions:
+                if stalest_node_val >= n.get_refresh_date() + self.refresh_threshold:
                     stalest_node_val = n.get_refresh_date()
                     stalest_node = n
         if stalest_node is not None:
