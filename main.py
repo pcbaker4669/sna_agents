@@ -1,21 +1,35 @@
-# 1. Objectives
+# Goal
 # Primary Objective: To model a social network recommendation
 # system similar to YouTube where network structure is a hybrid
-# scale-free network
+# scale-free network.
+# Today's objective (3_23_2024) - Create a free scale network
+# where choices for recommended nodes are based on a node's interaction score,
+# the interaction score is only based on in-degree. But we will want to
+# add a similarity score also.  Additionally, a user interaction score would
+# be desirable which would mimic users doing: view, click, share, comment,
+# and watch time.
+
+# Testing will start with only 5 nodes.  The start_node_num is set to 4 to
+# allow an initial networks with everyone having an in-degree of one.
+# tot_nodes is set to 5 (initially) and will be increased.  The produced
+# networks will be view in Gephi (network anaylsis software) to observe
+# proper construction of a scale-free graph.  Before I add other selection
+# metrics, I would like to see the formation of a Barabási–Albert (BA)
+# scale-free network model
+
+
+
 import networkx as nx
 import agent as ag
 import random as rnd
-
 start_node_num = 4
-tot_nodes = 200
-
-log_list = []
-nodes_per_step = 4
+tot_nodes = 5
+fileNumber = 1
 
 
 def export_graph():
     edges = g.edges
-    f_ref = open(f"output_{tot_nodes}_3.csv", "w")
+    f_ref = open(f"tot_node{tot_nodes}_{fileNumber}.csv", "w")
     f_ref.write("Source, Target, Link\n")
     for e in edges:
         f_ref.write("{}, {}, {}\n".format(e[0], e[1], "1"))
@@ -23,82 +37,69 @@ def export_graph():
 
 
 g = nx.DiGraph()
-cc_model = ag.CC_Model()
+sna_model = ag.CC_Model()
 
+
+# Create start_node_num, initially 4, each node is pointing to
+# the next node in a loop to ensure the graph is connected and
+# all four initial nodes have an in-degree
 def setup():
     n = []
     for i in range(0, start_node_num):
-        n.append(cc_model.create_rnd_node())
+        n.append(sna_model.create_rnd_node())
         g.add_node(n[i].get_name())
 
     for i in range(1, start_node_num):
-        g.add_edge(n[i-1].get_name(), n[i].get_name())
+        g.add_edge(n[i - 1].get_name(), n[i].get_name())
+    g.add_edge(n[start_node_num-1].get_name(), n[0].get_name())
 
     for i in range(0, start_node_num):
-        n[i].update_node_interaction(g.in_degree(n[i].get_name()), cc_model.get_count())
+        degree_in = g.in_degree(n[i].get_name())
+        n[i].set_interactions(degree_in)
+        sna_model.update_graph_totals()
+        print("initialized node: Name: {}, Interaction: {}"
+              .format(i, n[i].get_interactions()))
 
 
 def add_node_to_graph():
-    n_new = cc_model.create_rnd_node()
-    g.add_node(n_new.get_name())
-    #print("new is: ", n_new.get_name())
-    # nrp will be the parent that picks you based on similar words
-    nrp = cc_model.get_parent_match(n_new)
+    # the new node is created and added to the graph, additionally
+    # the sna_model adds the node to the dictionary of nodes
+    new_node = sna_model.create_rnd_node()
+    g.add_node(new_node.get_name())
 
-    # nr2 and nr3 will be recs that your video provides
-    # nr2 will be above average interactions and similar words
-    #nr2_lst = cc_model.get_popular_matches(n_new, nrp, 1)
+    # find recommended nodes the new node will point to first before
+    # we find a parent.
+    best_match = sna_model.get_popular_match()
+    g.add_edge(new_node.get_name(), best_match.get_name())
+    print("best match for new node {} is {}"
+          .format(new_node.get_name(), best_match.get_name()))
 
-    # nr3 will be only based on similar words
-    nr3_lst = cc_model.get_similar_match(n_new, nrp, 3)
+    # find the parent in the graph so then new node gets a chance. The
+    # parent selection will need a matching criteria, but currently it's
+    # a random draw
+    parent_match = sna_model.get_parent_for_new_node(best_match)
+    g.add_edge(parent_match.get_name(), new_node.get_name())
+    print("the parent selected for new node {} is {} (by chance) "
+          .format(new_node.get_name(),  parent_match.get_name()))
 
-    g.add_edge(nrp.get_name(), n_new.get_name())
-    # for n in nr2_lst:
-    #     g.add_edge(n_new.get_name(), n.get_name())
+    # update interaction for new_node (in-degree) and best_match
+    # (graph in-degree), parent_match will not get updated because it's
+    # out-degree
+    best_match.increment_interaction()
+    new_node.increment_interaction()
+    sna_model.update_graph_totals()
+    print("(add_node_to_graph): new node: {}, parent: {}, rec: {} denominator: {:.3f}".
+          format(new_node.get_name(), parent_match.get_name(),
+                 best_match.get_name(),
+                 sna_model.get_node_att_prob(new_node)))
 
-    for n in nr3_lst:
-        g.add_edge(n_new.get_name(), n.get_name())
-
-    # remove node with oldest interactions
-    stalest_node = cc_model.get_stale_node()
-    remove_edge_by_node(stalest_node)
-    edge_lst = list(g.edges)
-
-    u, v, s = cc_model.get_worse_match_nodes(edge_lst)
-    if u is not None and v is not None:
-        if (u.get_name(), v.get_name()) in edge_lst:
-            g.remove_edge(u.get_name(), v.get_name())
-            #print("1. remove an edge {}, {}, score = {}".format(u.get_name(), v.get_name(), s))
-        if (v.get_name(), u.get_name()) in edge_lst:
-            g.remove_edge(v.get_name(), u.get_name())
-            #print("2. removed an edge {}, {}, score = {}".format(v.get_name(), u.get_name(), s))
-    else:
-        pass
-        # print("didn't find a worse edge: ", edge_lst)
-
-    for n in cc_model.get_nodes():
-        n.update_node_interaction(g.in_degree(n.get_name()), cc_model.get_count())
-
-
-
-def remove_edge_by_node(node):
-    if node is not None:
-        node_name = node.get_name()
-        edges_in = list(g.in_edges(node_name))
-        if len(edges_in) > 0:
-            u, v = rnd.choice(edges_in)
-            g.remove_edge(u, v)
-            node.update_node_interaction(g.in_degree(node_name), cc_model.get_count())
 
 def go():
-    # Add first node to graph
-
-    while cc_model.get_count() <= tot_nodes:
+    adds_to_add = tot_nodes - start_node_num
+    for i in range(adds_to_add):
         add_node_to_graph()
-        node_cnt = len(g.nodes)
-        print("node cnt = ", node_cnt)
 
 setup()
 go()
-print("skips and removals: ", cc_model.get_skips_and_removal_num())
+print("A list of nodes in sna_model with there interaction scores: ",sna_model)
 export_graph()
