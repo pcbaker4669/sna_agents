@@ -50,6 +50,7 @@ class CC_Model:
     # it is random
     def get_parent_for_new_node(self, node):
         keys = list(self.nodes.keys())
+        keys.remove(node.get_name())
         k = random.choice(keys)
         return self.nodes[k]
 
@@ -61,12 +62,13 @@ class CC_Model:
         # picks nodes randomly and get attachment prob to test for selection
         # using the interactions score
         cnt = 0
-        while True or cnt > 1000:
+        while True or cnt > 100000:
             k = random.choice(keys)
             prob = int(self.get_node_att_prob(self.nodes[k]) * 100)
             roll = random.randint(0, 100)
-            print("> {}, node: {}, prob: {}, roll: {}".format(cnt, k, prob, roll))
+            #print("> {}, node: {}, prob: {}, roll: {}".format(cnt, k, prob, roll))
             if prob >= roll:
+                print(f"get_popular_match ran {cnt} attempts before finds a match")
                 return self.nodes[k]
             cnt += 1
 

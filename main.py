@@ -17,13 +17,17 @@
 # metrics, I would like to see the formation of a Barabási–Albert (BA)
 # scale-free network model
 
+# Updates
+# Noticed that a new_node can select itself for a parent, removing this
+# possibility
+
 
 
 import networkx as nx
 import agent as ag
 import random as rnd
 start_node_num = 4
-tot_nodes = 5
+tot_nodes = 22000
 fileNumber = 1
 
 
@@ -77,7 +81,7 @@ def add_node_to_graph():
     # find the parent in the graph so then new node gets a chance. The
     # parent selection will need a matching criteria, but currently it's
     # a random draw
-    parent_match = sna_model.get_parent_for_new_node(best_match)
+    parent_match = sna_model.get_parent_for_new_node(new_node)
     g.add_edge(parent_match.get_name(), new_node.get_name())
     print("the parent selected for new node {} is {} (by chance) "
           .format(new_node.get_name(),  parent_match.get_name()))
