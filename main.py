@@ -21,6 +21,11 @@
 # Noticed that a new_node can select itself for a parent, removing this
 # possibility
 
+# 3/24/2024
+# Between each iteration, there should be metrics applied to the node
+# for now, lets modify the selection process so that a similarity score
+# will play into account for at least the parent node
+
 
 
 import networkx as nx
