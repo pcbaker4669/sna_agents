@@ -2,7 +2,7 @@
 # Primary Objective: To model a social network recommendation
 # system similar to YouTube where network structure is a hybrid
 # scale-free network.
-# Today's objective (3_23_2024) - Create a free scale network
+# Objective 1: 3_23_2024 - Create a free scale network
 # where choices for recommended nodes are based on a node's interaction score,
 # the interaction score is only based on in-degree. But we will want to
 # add a similarity score also.  Additionally, a user interaction score would
@@ -21,11 +21,15 @@
 # Noticed that a new_node can select itself for a parent, removing this
 # possibility
 
-# 3/24/2024
-# Between each iteration, there should be metrics applied to the node
-# for now, lets modify the selection process so that a similarity score
-# will play into account for at least the parent node
+# Objective 2: 3/24/2024
+# Lets modify the selection process so that a similarity score
+# will play into account for at least the parent node.  Lets find
+# the best match for the parent
 
+# Objective 3: 3/26/2024
+# Previously, the model matched the best parent with the created node
+# based on similarity.  But videos should also be selected based
+# on similarity.
 
 
 import networkx as nx
@@ -46,7 +50,7 @@ def export_graph():
 
 
 g = nx.DiGraph()
-sna_model = ag.CC_Model()
+sna_model = ag.SNA_Model()
 
 
 # Create start_node_num, initially 4, each node is pointing to
@@ -64,10 +68,10 @@ def setup():
 
     for i in range(0, start_node_num):
         degree_in = g.in_degree(n[i].get_name())
-        n[i].set_interactions(degree_in)
+        n[i].set_in_degree(degree_in)
         sna_model.update_graph_totals()
         print("initialized node: Name: {}, Interaction: {}"
-              .format(i, n[i].get_interactions()))
+              .format(i, n[i].get_in_degree()))
 
 
 def add_node_to_graph():
@@ -94,8 +98,8 @@ def add_node_to_graph():
     # update interaction for new_node (in-degree) and best_match
     # (graph in-degree), parent_match will not get updated because it's
     # out-degree
-    best_match.increment_interaction()
-    new_node.increment_interaction()
+    best_match.increment_in_degree()
+    new_node.increment_in_degree()
     sna_model.update_graph_totals()
     print("(add_node_to_graph): new node: {}, parent: {}, rec: {} denominator: {:.3f}".
           format(new_node.get_name(), parent_match.get_name(),

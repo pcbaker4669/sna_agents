@@ -2,39 +2,50 @@ import random
 
 
 class Agent:
-    def __init__(self, name, interactions):
+    def __init__(self, name, in_degree, content_score):
         self.name = name
-        self.interactions = interactions
+        self.in_degree = in_degree
+        self.content_score = content_score
 
-    def set_interactions(self, in_degree):
-        self.interactions = in_degree
+    def set_in_degree(self, in_degree):
+        self.in_degree = in_degree
 
-    def get_interactions(self):
-        return self.interactions
+    def get_in_degree(self):
+        return self.in_degree
 
-    def increment_interaction(self):
-        self.interactions += 1
+    def increment_in_degree(self):
+        self.in_degree += 1
+
+    def set_content_score(self, score):
+        self.content_score = score
+
+    def get_content_score(self):
+        return self.content_score
+
 
     def get_name(self):
         return self.name
 
     def __str__(self):
-        return "N: {}, I: {}".format(self.name, self.interactions)
+        return ("N: {}, I: {}, C: {}"
+                .format(self.name, self.in_degree, self.content_score))
 
 
-class CC_Model:
+class SNA_Model:
 
     def __init__(self):
         self.count = 0
         self.nodes = {}
-        self.tot_interactions = 0
+        self.tot_in_degrees = 0
+        self.content_score_rng = 100
+        self.match_threshold = .25
 
     def update_graph_totals(self):
         tot = 0
         keys = list(self.nodes.keys())
         for n in keys:
-            tot += self.nodes[n].get_interactions()
-        self.tot_interactions = tot
+            tot += self.nodes[n].get_in_degree()
+        self.tot_in_degrees = tot
 
     def get_count(self):
         return self.count
@@ -43,16 +54,22 @@ class CC_Model:
         return self.nodes
 
     def get_node_att_prob(self, node):
-        d = node.get_interactions()
-        return node.get_interactions()/self.tot_interactions
+        return node.get_in_degree()/self.tot_in_degrees
+    
 
     # get a parent, this choice will be from similarity, right now
     # it is random
     def get_parent_for_new_node(self, node):
         keys = list(self.nodes.keys())
         keys.remove(node.get_name())
-        k = random.choice(keys)
-        return self.nodes[k]
+        min_diff = self.content_score_rng
+        best_key = None
+        for k in keys:
+            diff = abs(node.get_content_score() - self.nodes[k].get_content_score())
+            if diff <= min_diff:
+                min_diff = diff
+                best_key = k
+        return self.nodes[best_key]
 
     # this is for the recommended nodes, the new node has interaction
     # zero and won't get picked.  Implement random activation, this
@@ -76,7 +93,8 @@ class CC_Model:
     def create_rnd_node(self):
         name = self.count
         interactions = 0
-        node = Agent(name, interactions)
+        content_score = random.randint(0, self.content_score_rng)
+        node = Agent(name, interactions, content_score)
         keys = self.nodes.keys()
         if name not in keys:
             self.nodes[name] = node
@@ -89,5 +107,5 @@ class CC_Model:
         s = ''
         keys = self.nodes.keys()
         for i in keys:
-            s += "(" + str(self.nodes[i].get_name()) + ":" + str(self.nodes[i].get_interactions()) + ")"
+            s += "(" + str(self.nodes[i].get_name()) + ":" + str(self.nodes[i].get_in_degree()) + ")"
         return s
