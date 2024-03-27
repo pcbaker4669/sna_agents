@@ -22,7 +22,6 @@ class Agent:
     def get_content_score(self):
         return self.content_score
 
-
     def get_name(self):
         return self.name
 
@@ -54,8 +53,14 @@ class SNA_Model:
         return self.nodes
 
     def get_node_att_prob(self, node):
-        return node.get_in_degree()/self.tot_in_degrees
-    
+        return node.get_in_degree() / self.tot_in_degrees
+
+    #
+    def get_node_similarity_prob(self, created_node, test_node):
+        score1 = created_node.get_content_score()
+        score2 = test_node.get_content_score()
+        return 1 - abs(score1 - score2)/self.content_score_rng
+
 
     # get a parent, this choice will be from similarity, right now
     # it is random
@@ -74,7 +79,8 @@ class SNA_Model:
     # this is for the recommended nodes, the new node has interaction
     # zero and won't get picked.  Implement random activation, this
     # might prove to be too slow.
-    def get_popular_match(self):
+    def get_popular_match(self, node_to_match):
+
         keys = list(self.nodes.keys())
         # picks nodes randomly and get attachment prob to test for selection
         # using the interactions score
@@ -83,12 +89,11 @@ class SNA_Model:
             k = random.choice(keys)
             prob = int(self.get_node_att_prob(self.nodes[k]) * 100)
             roll = random.randint(0, 100)
-            #print("> {}, node: {}, prob: {}, roll: {}".format(cnt, k, prob, roll))
+            # print("> {}, node: {}, prob: {}, roll: {}".format(cnt, k, prob, roll))
             if prob >= roll:
                 print(f"get_popular_match ran {cnt} attempts before finds a match")
                 return self.nodes[k]
             cnt += 1
-
 
     def create_rnd_node(self):
         name = self.count

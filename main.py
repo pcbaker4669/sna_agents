@@ -28,9 +28,16 @@
 
 # Objective 3: 3/26/2024
 # Previously, the model matched the best parent with the created node
-# based on similarity.  But videos should also be selected based
-# on similarity.
-
+# based on similarity.  But nodes should also be "selected" based
+# on similarity, as well as interactions (currently only in-degree for interactions).
+# Pass the node created into the get_popular_match and calculate an attachment
+# probability based on similarity score and interaction (get_node_att_prob)
+# use weighting so that one score doesn't crush the other score
+# weight_for_original_prob = 0.5
+# weight_for_similarity_score = 0.5
+# weighted_prob = (original_prob * weight_for_original_prob) +
+#                      (similarity_score * weight_for_similarity_score)
+#
 
 import networkx as nx
 import agent as ag
