@@ -26,9 +26,17 @@
 # will play into account for at least the parent node.  Lets find
 # the best match for the parent
 
-# Objective 3: 3/26/2024
+# Correction 1: 3/28/2024
+# Noticed a lack of preferred attachment with large networks.  The problem
+# with the preferred attachment probability is I didn't account for
+# the probability of attachment to get so low. When converting to percent,
+# I inadvertantly rounded so that everything under 1% had the same probability
+# of attachment.  This showed in the data for the 12K and 22K networks significantly.
+# correcting the problem
+
+# Objective 3: 3/28/2024 (not done yet)
 # Previously, the model matched the best parent with the created node
-# based on similarity.  But nodes should also be "selected" based
+# based on word_metric similarity.  But nodes should also be "selected" based
 # on similarity, as well as interactions (currently only in-degree for interactions).
 # Pass the node created into the get_popular_match and calculate an attachment
 # probability based on similarity score and interaction (get_node_att_prob)
@@ -38,13 +46,29 @@
 # weighted_prob = (original_prob * weight_for_original_prob) +
 #                      (similarity_score * weight_for_similarity_score)
 #
+#
+
+# Objective 4: The similarity probability selection needs to be adjusted because
+# it is too high and squashes the interaction probability.  Decided to use the
+# following calculation for similarity probability:  (1 - abs(score1 - score2))/self.tot_word_metric
+# this will place the selection probability on the same order of magnitude as
+# the in-degree probability.  We can then multiply the probabilities when making
+# a selection and have roughly equal weight. The result is a scale-free network
+# which is very close to the original.
+
+# Objective 5: create a continual updating graph that can "run", need to few
+#
 
 import networkx as nx
 import agent as ag
 import random as rnd
+import scipy
+
 start_node_num = 4
-tot_nodes = 22000
+tot_nodes = 100
 fileNumber = 1
+export_edge_table_flag = True
+export_graph_metrics_flag = False
 
 
 def export_graph():
@@ -56,8 +80,33 @@ def export_graph():
     f_ref.close()
 
 
-g = nx.DiGraph()
-sna_model = ag.SNA_Model()
+def export_graph_metrics():
+    f_ref = open(f"Metrics{tot_nodes}_{fileNumber}.csv", "w")
+    s = ("{}, {}, {}, {}, {}, {}, {}\n"
+         .format("Id", "In-Degree", "Out-Degree", "Degree",
+                 "Eccentricity", "PageRank", "Word-Metric"))
+    f_ref.write(s)
+    nodes = sna_model.get_nodes()
+    keys = nodes.keys()
+    page_rank = dict(nx.pagerank(g))
+    for k in keys:
+        node = nodes[k]
+        in_deg = g.in_degree(node.get_name())
+        out_deg = g.out_degree(node.get_name())
+        deg = g.degree(node.get_name())
+        ecc = dict(nx.eccentricity(g, v=[k]))
+
+        components = []
+        str_comp = []
+        modularity = []
+        c_c = []
+        eigen_cent = []
+        s = ("{}, {}, {}, {}, {}, {:.5f}, {}\n".
+             format(node.get_name(), in_deg, out_deg, deg,
+                    ecc[k], page_rank[k], sna_model.get_nodes()[k].get_word_metric()))
+        f_ref.write(s)
+
+    f_ref.close()
 
 
 # Create start_node_num, initially 4, each node is pointing to
@@ -71,14 +120,14 @@ def setup():
 
     for i in range(1, start_node_num):
         g.add_edge(n[i - 1].get_name(), n[i].get_name())
-    g.add_edge(n[start_node_num-1].get_name(), n[0].get_name())
+    g.add_edge(n[start_node_num - 1].get_name(), n[0].get_name())
 
     for i in range(0, start_node_num):
         degree_in = g.in_degree(n[i].get_name())
         n[i].set_in_degree(degree_in)
         sna_model.update_graph_totals()
-        print("initialized node: Name: {}, Interaction: {}"
-              .format(i, n[i].get_in_degree()))
+        # print("initialized node: Name: {}, Interaction: {}"
+        #       .format(i, n[i].get_in_degree()))
 
 
 def add_node_to_graph():
@@ -89,18 +138,18 @@ def add_node_to_graph():
 
     # find recommended nodes the new node will point to first before
     # we find a parent.
-    best_match = sna_model.get_popular_match()
+    best_match = sna_model.get_popular_match(new_node, .5, .5)
     g.add_edge(new_node.get_name(), best_match.get_name())
-    print("best match for new node {} is {}"
-          .format(new_node.get_name(), best_match.get_name()))
+    # print("best match for new node {} is {}"
+    #       .format(new_node.get_name(), best_match.get_name()))
 
     # find the parent in the graph so then new node gets a chance. The
     # parent selection will need a matching criteria, but currently it's
     # a random draw
     parent_match = sna_model.get_parent_for_new_node(new_node)
     g.add_edge(parent_match.get_name(), new_node.get_name())
-    print("the parent selected for new node {} is {} (by chance) "
-          .format(new_node.get_name(),  parent_match.get_name()))
+    # print("the parent selected for new node {} is {} (by chance) "
+    #       .format(new_node.get_name(),  parent_match.get_name()))
 
     # update interaction for new_node (in-degree) and best_match
     # (graph in-degree), parent_match will not get updated because it's
@@ -108,18 +157,46 @@ def add_node_to_graph():
     best_match.increment_in_degree()
     new_node.increment_in_degree()
     sna_model.update_graph_totals()
-    print("(add_node_to_graph): new node: {}, parent: {}, rec: {} denominator: {:.3f}".
-          format(new_node.get_name(), parent_match.get_name(),
-                 best_match.get_name(),
-                 sna_model.get_node_att_prob(new_node)))
+    # print("(add_node_to_graph): new node: {}, parent: {}, rec: {} denominator: {:.3f}".
+    #       format(new_node.get_name(), parent_match.get_name(),
+    #              best_match.get_name(),
+    #              sna_model.get_node_att_prob(new_node)))
 
 
 def go():
     adds_to_add = tot_nodes - start_node_num
     for i in range(adds_to_add):
         add_node_to_graph()
+        if i % 100 == 0:
+            print("node = ", i)
+
+
+print("*************************************************")
+print("************* Welcome to SNA Model **************")
+print("1. Enter the number of node in the network:")
+tot_nodes = int(input())
+print("2. Would you like to export the edge list? (t or f)")
+export_edges = input()
+if export_edges == 't':
+    export_edge_table_flag = True
+else:
+    export_edge_table_flag = False
+print("3. Would you like to export the network metrics? (t or f)")
+export_metrics = input()
+if export_metrics == 't':
+    export_graph_metrics_flag = True
+else:
+    export_graph_metrics_flag = False
+    
+
+g = nx.DiGraph()
+sna_model = ag.SNA_Model()
 
 setup()
 go()
-print("A list of nodes in sna_model with there interaction scores: ",sna_model)
-export_graph()
+print("A list of nodes in sna_model with there interaction scores: ", sna_model)
+if export_edge_table_flag:
+    export_graph()
+
+if export_graph_metrics_flag:
+    export_graph_metrics()

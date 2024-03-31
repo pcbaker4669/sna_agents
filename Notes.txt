@@ -1,34 +1,39 @@
-We start with 3 nodes, the nodes will have scores of:
-    interaction, similar_words
+The eccentricity of a node v is the maximum distance from v to all other nodes in G.
+  Might want to get the shortest path pairs here
 
-Likes should have the source of the like, but for simplicity, that
-is not added. Comparing scores simply is an interaction to interaction
-distance, the closer to zero, the closer the match when comparing
+connected components - Robert Tarjan, Depth-First Search and Linear Graph Algorithms,
+in SIAM Journal on Computing 1 (2): 146–160 (1972)
 
-Popularity of a video is used by finding the average interaction score and
-everything above that score is considered popular.
+Zipf's law word usage:
+https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4176592/
 
-Every round:
+word frequencies
+https://datalab.ucdavis.edu/text-reports/archive_text_reports/city_planning_data-20190530/wordfrequencies.html
 
-A video is added. (after initial 3 nodes created with 2 edges)
-    The new video is created with only "similar words" score and interactions 0.
-    And existing node will be picked to point to the new node via similar words.
-    Two other edges will be formed so the new video is recommending existing videos.
-    One edge will pick a node by similar words "only"
-    The second edge will pick a node based on similar words combined with
-    the above average interaction threshold with the other.
-One edge will removed.
-    An edge will be removed based on how "stale" a video becomes as well as its
-    popularity.
-    Find a stale nodes with less than average interactions (which is calculated
-    each tick).
-    The interactions must have as least "min_interactions" which is also the
-    number of in-degree (default 1)
-    The node won't be selected for "stale" until it reaches an age threshold
-    called "refresh_threshold"
-    If above conditions are met, the node with the oldest refresh date
-    is selected the one of the in-edges are randomly selected and removed
-Score update
-    increase interaction score based on the "in-degree".
-    When nodes get recommended, their refresh date is updated
-    Calculate interactions average on the network
+I'm creating a social networking model that is similar to youtube where nodes are
+videos and directed network is created by creating a new node and adding it to the
+network based on metrics such as page-rank and word-simiarity.  The network that
+forms is a scale-free network but I'm need an idea to make the model interesting.
+What value can I show with this model?
+
+Word usage plays a big roll in recommendations.  Content is matched based on
+word-similarity.  Using a randomly generated word-score will produce one set
+of results, but it stands to reason word usage is not uniform.  The usage of
+content providers and users is probably not normally distributed either.  An
+interesting experiment would be to assume most views have a limited and jargon
+sytle vocabulary do to their youth, utilizing slang and repetitive words.
+
+I need a distribution that would mimic word usage based on a population.  The word
+usage would be scored between 1 and 100 where 1 is limited vocabulary and 100 is a
+rich vocabulary.
+
+A suitable distribution for this scenario could be the Beta distribution.
+The Beta distribution is defined on the interval [0, 1], but it can easily be
+scaled to match your range of 1 to 100. It's advantageous for this use case
+because it can take on various shapes, including those that are skewed to the
+left or right, depending on the parameters chosen. This allows for modeling a
+scenario where a small portion of the population has either a very limited or
+very rich vocabulary, with the majority of individuals falling somewhere in between.
+
+I have a model that creates a scale-free network based on in-degree and a similarity
+metric.
