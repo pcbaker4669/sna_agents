@@ -56,8 +56,13 @@
 # a selection and have roughly equal weight. The result is a scale-free network
 # which is very close to the original.
 
-# Objective 5: create a continual updating graph that can "run", need to few
-#
+# Objective 5: create a continual updating graph that can "run", we will have
+# and interaction score.  When the network is created, query the user on
+# a word metric they would like to search on.  Find the node with the word metric
+# score or the next higher.  Return a list of nodes searched on the surrounding
+# the word metric.  We will query the user for a rating (interaction score), 0
+# is not even looked at, 10 would be like, share, watch all, comment.  Restructure
+# the graph based on the new interaction score
 
 import networkx as nx
 import agent as ag
@@ -138,7 +143,7 @@ def add_node_to_graph():
 
     # find recommended nodes the new node will point to first before
     # we find a parent.
-    best_match = sna_model.get_popular_match(new_node, .5, .5)
+    best_match = sna_model.get_structural_match(new_node)
     g.add_edge(new_node.get_name(), best_match.get_name())
     # print("best match for new node {} is {}"
     #       .format(new_node.get_name(), best_match.get_name()))
@@ -169,6 +174,7 @@ def go():
         add_node_to_graph()
         if i % 100 == 0:
             print("node = ", i)
+    print("network created, time to click on something")
 
 
 print("*************************************************")
@@ -187,14 +193,45 @@ if export_metrics == 't':
     export_graph_metrics_flag = True
 else:
     export_graph_metrics_flag = False
-    
+
 
 g = nx.DiGraph()
 sna_model = ag.SNA_Model()
 
 setup()
 go()
-print("A list of nodes in sna_model with there interaction scores: ", sna_model)
+
+
+node_lst = sna_model.get_nodes_sorted_by_metric()
+
+print('What would you like to search on? (Enter:0-100 or quit: -1')
+response = int(input())
+while response >= 0:
+    matches = []
+    idx = response
+    r_idx = response-1
+    for i in range(len(node_lst)):
+        n = node_lst[i]
+        if n.get_word_metric() >= response or i == len(node_lst)-1:
+            matches.append(n)
+            if i+1 < len(node_lst):
+                matches.append(node_lst[i+1])
+            if i-1 >= 0:
+                matches.append(node_lst[i-1])
+            if i-2 >= 0:
+                matches.append(node_lst[i-2])
+            break
+    for n in matches:
+        print("=> ", n)
+    print('What would you like to search on? (Enter:0-100 or quit: -1')
+    response = int(input())
+
+
+
+
+
+
+
 if export_edge_table_flag:
     export_graph()
 
