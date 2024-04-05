@@ -1,4 +1,3 @@
-# Goal
 # Primary Objective: To model a social network recommendation
 # system similar to YouTube where network structure is a hybrid
 # scale-free network.
@@ -9,10 +8,11 @@
 # be desirable which would mimic users doing: view, click, share, comment,
 # and watch time.
 
+
 # Testing will start with only 5 nodes.  The start_node_num is set to 4 to
-# allow an initial networks with everyone having an in-degree of one.
-# tot_nodes is set to 5 (initially) and will be increased.  The produced
-# networks will be view in Gephi (network anaylsis software) to observe
+# allow an initial network, strongly connected, with everyone having an
+# in-degree of one.  The tot_nodes is set to 5 (initially) and will be increased.
+# The produced networks will be viewed in Gephi (network analysis software) to observe
 # proper construction of a scale-free graph.  Before I add other selection
 # metrics, I would like to see the formation of a Barabási–Albert (BA)
 # scale-free network model
@@ -20,6 +20,10 @@
 # Updates
 # Noticed that a new_node can select itself for a parent, removing this
 # possibility
+# The scale free network is not forming correctly for high degree nodes,
+# there is still a scale-free structure, but graphs of 6000 nodes should have
+# a few nodes with 100's of in-degree.  Continuing
+
 
 # Objective 2: 3/24/2024
 # Lets modify the selection process so that a similarity score
@@ -43,7 +47,7 @@
 # use weighting so that one score doesn't crush the other score
 # weight_for_original_prob = 0.5
 # weight_for_similarity_score = 0.5
-# weighted_prob = (original_prob * weight_for_original_prob) +
+# prob = (original_prob * weight_for_original_prob) +
 #                      (similarity_score * weight_for_similarity_score)
 #
 #
@@ -56,24 +60,36 @@
 # a selection and have roughly equal weight. The result is a scale-free network
 # which is very close to the original.
 
-# Objective 5: create a continual updating graph that can "run", we will have
-# and interaction score.  When the network is created, query the user on
-# a word metric they would like to search on.  Find the node with the word metric
-# score or the next higher.  Return a list of nodes searched on the surrounding
-# the word metric.  We will query the user for a rating (interaction score), 0
-# is not even looked at, 10 would be like, share, watch all, comment.  Restructure
-# the graph based on the new interaction score
+# Objective 5: When the network is created, add one more metric which is
+# interation score.  0 is when no-one even looks at the video (the lowest score),
+# 10 would be like, share, watch all, comment.  Create network using the interaction
+# score with the in-degree and similarity, randomly assign the interaction score
+# on creation and use it in the
+# get_best_match function to find the match.  We will pass in the weights for
+# in-degree, word-similarity, and the interaction score (weight = (.3, .3, .34)).
+# The interaction score will be normalized much like the degree where the node's
+# interaction score will be divided by the total of all interactions in the graph
+# The resulting network is still a scale-free network with little change to the
+# overall structure.
+
+# Objective 6 (4/3/2024): create an updating graph that can "run" updates.  For the
+# sake of reducing complexity, no new nodes will be added to the graph
+# while we run update.  Implementing a visualization mechanism to see how in-degree
+# distribution changes for the updates.  Currently, when running the graph, the network
+# increases nodes with large in-degree.  How will this change with increasing the weight
+# on word similarity?
 
 import networkx as nx
 import agent as ag
-import random as rnd
-import scipy
+import chart
+import random
 
 start_node_num = 4
 tot_nodes = 100
 fileNumber = 1
 export_edge_table_flag = True
 export_graph_metrics_flag = False
+weights = [.3, .4, .3]
 
 
 def export_graph():
@@ -87,9 +103,9 @@ def export_graph():
 
 def export_graph_metrics():
     f_ref = open(f"Metrics{tot_nodes}_{fileNumber}.csv", "w")
-    s = ("{}, {}, {}, {}, {}, {}, {}\n"
+    s = ("{}, {}, {}, {}, {}, {}, {}, {}\n"
          .format("Id", "In-Degree", "Out-Degree", "Degree",
-                 "Eccentricity", "PageRank", "Word-Metric"))
+                 "Eccentricity", "PageRank", "Word-Metric", "Interaction-Score"))
     f_ref.write(s)
     nodes = sna_model.get_nodes()
     keys = nodes.keys()
@@ -101,14 +117,10 @@ def export_graph_metrics():
         deg = g.degree(node.get_name())
         ecc = dict(nx.eccentricity(g, v=[k]))
 
-        components = []
-        str_comp = []
-        modularity = []
-        c_c = []
-        eigen_cent = []
-        s = ("{}, {}, {}, {}, {}, {:.5f}, {}\n".
+        s = ("{}, {}, {}, {}, {}, {:.5f}, {}, {}\n".
              format(node.get_name(), in_deg, out_deg, deg,
-                    ecc[k], page_rank[k], sna_model.get_nodes()[k].get_word_metric()))
+                    ecc[k], page_rank[k], sna_model.get_nodes()[k].get_word_metric(),
+                    sna_model.get_nodes()[k].get_interaction_score()))
         f_ref.write(s)
 
     f_ref.close()
@@ -131,10 +143,11 @@ def setup():
         degree_in = g.in_degree(n[i].get_name())
         n[i].set_in_degree(degree_in)
         sna_model.update_graph_totals()
-        # print("initialized node: Name: {}, Interaction: {}"
-        #       .format(i, n[i].get_in_degree()))
 
 
+# This function is used in the initial build of the network
+# it creates a node, finds a parent based strictly on similarity, and
+# finds a child node based on in-degree and similarity
 def add_node_to_graph():
     # the new node is created and added to the graph, additionally
     # the sna_model adds the node to the dictionary of nodes
@@ -143,7 +156,7 @@ def add_node_to_graph():
 
     # find recommended nodes the new node will point to first before
     # we find a parent.
-    best_match = sna_model.get_structural_match(new_node)
+    best_match = sna_model.get_best_match(new_node)
     g.add_edge(new_node.get_name(), best_match.get_name())
     # print("best match for new node {} is {}"
     #       .format(new_node.get_name(), best_match.get_name()))
@@ -162,10 +175,36 @@ def add_node_to_graph():
     best_match.increment_in_degree()
     new_node.increment_in_degree()
     sna_model.update_graph_totals()
-    # print("(add_node_to_graph): new node: {}, parent: {}, rec: {} denominator: {:.3f}".
-    #       format(new_node.get_name(), parent_match.get_name(),
-    #              best_match.get_name(),
-    #              sna_model.get_node_att_prob(new_node)))
+
+# This function is used to update the network
+# it takes a number of edges to modify in the network, randomly picks that many
+# edges.  For each edge selected, get the source node, remove the edge from the graph,
+# find a new node for the source node to point to
+def modify_graph(num_of_edges):
+    edge_lst = []
+    edges_from_graph = list(g.edges)
+    # randomly select 5 edges from the graph
+    while len(edge_lst) <= num_of_edges:
+        e = random.choice(edges_from_graph)
+        edge_lst.append(e)
+    # for each selected edge, get the source node, remove the edge
+    for e in edge_lst:
+        source_node = sna_model.get_nodes()[e[0]]
+        old_target_node = sna_model.get_nodes()[e[1]]
+        # remove the old edge, this has be making our graph disconnected so comment
+        # out the "remove edge" for now
+        # g.remove_edge(*e)
+        # find a new match, now we are using interaction scores
+        new_match = sna_model.get_best_match(source_node, weights)
+        g.add_edge(source_node.get_name(), new_match.get_name())
+        degree_in = g.in_degree(source_node.get_name())
+        source_node.set_in_degree(degree_in)
+        degree_in = g.in_degree(old_target_node.get_name())
+        old_target_node.set_in_degree(degree_in)
+        degree_in = g.in_degree(new_match.get_name())
+        new_match.set_in_degree(degree_in)
+        sna_model.update_graph_totals()
+
 
 
 def go():
@@ -201,39 +240,15 @@ sna_model = ag.SNA_Model()
 setup()
 go()
 
-
-node_lst = sna_model.get_nodes_sorted_by_metric()
-
-print('What would you like to search on? (Enter:0-100 or quit: -1')
-response = int(input())
-while response >= 0:
-    matches = []
-    idx = response
-    r_idx = response-1
-    for i in range(len(node_lst)):
-        n = node_lst[i]
-        if n.get_word_metric() >= response or i == len(node_lst)-1:
-            matches.append(n)
-            if i+1 < len(node_lst):
-                matches.append(node_lst[i+1])
-            if i-1 >= 0:
-                matches.append(node_lst[i-1])
-            if i-2 >= 0:
-                matches.append(node_lst[i-2])
-            break
-    for n in matches:
-        print("=> ", n)
-    print('What would you like to search on? (Enter:0-100 or quit: -1')
-    response = int(input())
-
-
-
-
-
-
-
 if export_edge_table_flag:
     export_graph()
 
-if export_graph_metrics_flag:
-    export_graph_metrics()
+h = chart.Histo()
+
+for i in range(400):
+    modify_graph(5)
+    data = sna_model.get_in_degree_lst()
+    h.update_plot(data, .05)
+    fileNumber = i + 1
+    if export_graph_metrics_flag:
+        export_graph_metrics()
