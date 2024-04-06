@@ -37,3 +37,27 @@ very rich vocabulary, with the majority of individuals falling somewhere in betw
 
 I have a model that creates a scale-free network based on in-degree and a similarity
 metric.
+
+1. Betweenness Centrality
+Definition: Betweenness centrality measures the extent to which a node lies on paths
+between other nodes. In simple terms, it identifies nodes that serve as bridges or
+connectors between different parts of the network. High betweenness centrality indicates
+that a node plays a crucial role in the network's flow of information or resources,
+acting as a gatekeeper or broker.
+
+Why It's Interesting: It highlights nodes that, while they may not have the highest
+number of direct connections (as indicated by in-degree), are critical for the
+connectivity of the network. These nodes can be influential in spreading information or
+in controlling communication between disparate groups within the network.
+
+2. Clustering Coefficient
+Definition: The clustering coefficient measures the degree to which nodes in a network
+tend to cluster together. It reflects the likelihood that two acquaintances of a node
+are also acquaintances of each other. For a given node, it is the ratio of existing
+connections among its neighbors to the total possible connections among them.
+
+Why It's Interesting: This metric provides insights into the local group cohesion
+within the network. A high clustering coefficient indicates a tendency towards the
+formation of tightly knit groups or communities. It can be used to identify community
+structures within the network, understand social cohesion, and predict the resilience of
+the network to disruptions.

@@ -65,7 +65,7 @@
 # 10 would be like, share, watch all, comment.  Create network using the interaction
 # score with the in-degree and similarity, randomly assign the interaction score
 # on creation and use it in the
-# get_best_match function to find the match.  We will pass in the weights for
+# get_better_match function to find the match.  We will pass in the weights for
 # in-degree, word-similarity, and the interaction score (weight = (.3, .3, .34)).
 # The interaction score will be normalized much like the degree where the node's
 # interaction score will be divided by the total of all interactions in the graph
@@ -89,8 +89,7 @@ tot_nodes = 100
 fileNumber = 1
 export_edge_table_flag = True
 export_graph_metrics_flag = False
-weights = [.3, .4, .3]
-
+weights = [.33, .34, .33]
 
 def export_graph():
     edges = g.edges
@@ -156,7 +155,7 @@ def add_node_to_graph():
 
     # find recommended nodes the new node will point to first before
     # we find a parent.
-    best_match = sna_model.get_best_match(new_node)
+    best_match = sna_model.get_good_match(new_node, weights)
     g.add_edge(new_node.get_name(), best_match.get_name())
     # print("best match for new node {} is {}"
     #       .format(new_node.get_name(), best_match.get_name()))
@@ -176,40 +175,54 @@ def add_node_to_graph():
     new_node.increment_in_degree()
     sna_model.update_graph_totals()
 
+
 # This function is used to update the network
-# it takes a number of edges to modify in the network, randomly picks that many
-# edges.  For each edge selected, get the source node, remove the edge from the graph,
+# it takes a number of edges to modify in the network, randomly picks number of
+# edges from "num_of_edges".  For each edge selected, get the source node, and it's
+# target node, pick a new node, if the similarity score and interaction score is
+# higher than the old target, remove the edge from the graph is if it doesn't cause
+# a disconnected graph, and add edge to the new target.
 # find a new node for the source node to point to
 def modify_graph(num_of_edges):
     edge_lst = []
     edges_from_graph = list(g.edges)
-    # randomly select 5 edges from the graph
-    while len(edge_lst) <= num_of_edges:
-        e = random.choice(edges_from_graph)
-        edge_lst.append(e)
+    random.shuffle(edges_from_graph)
+    edge_mod_cnt = 0
+    edges_removed = 0
+
     # for each selected edge, get the source node, remove the edge
-    for e in edge_lst:
+    while edge_mod_cnt < num_of_edges:
+        e = edges_from_graph[edge_mod_cnt]
         source_node = sna_model.get_nodes()[e[0]]
         old_target_node = sna_model.get_nodes()[e[1]]
-        # remove the old edge, this has be making our graph disconnected so comment
-        # out the "remove edge" for now
-        # g.remove_edge(*e)
-        # find a new match, now we are using interaction scores
-        new_match = sna_model.get_best_match(source_node, weights)
-        g.add_edge(source_node.get_name(), new_match.get_name())
-        degree_in = g.in_degree(source_node.get_name())
-        source_node.set_in_degree(degree_in)
-        degree_in = g.in_degree(old_target_node.get_name())
-        old_target_node.set_in_degree(degree_in)
-        degree_in = g.in_degree(new_match.get_name())
-        new_match.set_in_degree(degree_in)
-        sna_model.update_graph_totals()
+        new_match = sna_model.get_better_match(source_node, old_target_node)
 
+        # remove the old edge, check to avoid making graph disconnected
+        # if source_node has in-degree > 1, it's okay to remove
+        src_out_degree = g.out_degree(source_node.get_name())
+        # if old_target_node has out-degree > 1 it's okay to remove
+        old_tgt_in_degree = g.in_degree(old_target_node.get_name())
+        if src_out_degree > 1 and old_tgt_in_degree > 1:
+            g.remove_edge(*e)
+            edges_removed += 1
+
+        # find a new match, now we are using interaction scores
+        g.add_edge(source_node.get_name(), new_match.get_name())
+        src_degree_in = g.in_degree(source_node.get_name())
+        source_node.set_in_degree(src_degree_in)
+        old_tgt_degree_in = g.in_degree(old_target_node.get_name())
+        old_target_node.set_in_degree(old_tgt_degree_in)
+        new_match_degree_in = g.in_degree(new_match.get_name())
+        new_match.set_in_degree(new_match_degree_in)
+        sna_model.update_graph_totals()
+        edge_mod_cnt += 1
+        #print("edges modified: {} edges removed: {}"
+        #      .format(edge_mod_cnt, edges_removed))
 
 
 def go():
-    adds_to_add = tot_nodes - start_node_num
-    for i in range(adds_to_add):
+    nodes_to_add = tot_nodes - start_node_num
+    for i in range(nodes_to_add):
         add_node_to_graph()
         if i % 100 == 0:
             print("node = ", i)
@@ -245,10 +258,15 @@ if export_edge_table_flag:
 
 h = chart.Histo()
 
-for i in range(400):
+original_list = sna_model.get_in_degree_lst()[:]
+
+for i in range(20):
     modify_graph(5)
     data = sna_model.get_in_degree_lst()
-    h.update_plot(data, .05)
+    print("i = ", i)
+    h.update_plot(data)
     fileNumber = i + 1
     if export_graph_metrics_flag:
         export_graph_metrics()
+print("start network = ", original_list)
+print("end network = ", sna_model.get_in_degree_lst())

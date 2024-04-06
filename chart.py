@@ -9,19 +9,18 @@ class Histo:
     def __init__(self):
         self.n_bins = 5
         plt.ion()
-        self.fig, self.ax = plt.subplots(1, 1, sharey=True, tight_layout=True)
+        self.fig, self.degAx = plt.subplots(1, 1, sharey=True, tight_layout=True)
 
 
-    def update_plot(self, data, waitTime):
-        self.ax.cla()
-        print("data = ", data)
-        plt.xlabel("Log2(Node In-Degree)")
-        plt.ylabel("Log2(Node Count)")
+    def update_plot(self, data):
+        self.degAx.cla()
+
+        self.degAx.set_xlabel("Log2(Node In-Degree)")
+        self.degAx.set_ylabel("Log2(Node Count)")
         plt.title("In-degree/Word Similarity/Interaction")
-        self.ax.hist(np.log2(data), log=True, bins=self.n_bins)
+        self.degAx.hist(np.log2(data), log=True, bins=self.n_bins)
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-        time.sleep(waitTime)
 
 
 # h = Histo()

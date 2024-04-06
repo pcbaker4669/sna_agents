@@ -103,7 +103,7 @@ class SNA_Model:
 
     # this is for the recommended nodes (target nodes). Implement random activation,
     # this might prove to be too slow.
-    def get_best_match(self, node_to_match, weights=(.3, .3, .4)):
+    def get_good_match(self, node_to_match, weights=(.3, .3, .4)):
         keys = list(self.nodes.keys())
         # picks nodes randomly and get attachment prob to test for selection
         # using the interactions score
@@ -120,6 +120,26 @@ class SNA_Model:
                 # to adjust for different results
                 prob = weights[0]*prob + weights[1]*sim + weights[2]*interaction
                 if prob >= roll:
+                    return self.nodes[k]
+                cnt += 1
+
+    def get_better_match(self, node_to_match, old_target_node):
+        keys = list(self.nodes.keys())
+        # picks nodes randomly and get attachment prob to test for selection
+        # using the interactions score
+        cnt = 0
+        while True or cnt > 100000:
+            k = random.choice(keys)
+            if k != node_to_match.get_name():
+                test_node = self.nodes[k]
+                test_sim = self.get_node_similarity_prob(node_to_match, test_node)
+                test_interaction = self.get_interaction_score_prob(test_node)
+                old_sim = self.get_node_similarity_prob(node_to_match, old_target_node)
+                old_interaction = self.get_interaction_score_prob(old_target_node)
+                # to adjust for different results
+                test_score = 0.5 * test_sim + 0.5 * test_interaction
+                old_score = 0.5 * old_sim + 0.5 * old_interaction
+                if test_score >= old_score:
                     return self.nodes[k]
                 cnt += 1
 
