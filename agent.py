@@ -39,7 +39,7 @@ class Agent:
         return self.name
 
     def __str__(self):
-        return ("N: {}, D: {}, W: {}"
+        return ("N: {}, In-D: {}, W-M: {}"
                 .format(self.name, self.in_degree, self.word_metric))
 
 
@@ -54,16 +54,19 @@ class SNA_Model:
         self.tot_word_metric = 0
         self.tot_interaction_score = 0
         self.interaction_score_rng = 10
+        self.file_ref = open("prob_scores_1000.csv", "w")
+        s = "Id, In-degree, Word Sim, Interaction\n"
+        self.file_ref.write(s)
 
     def update_graph_totals(self):
         tot = 0
-        int_score = 0
+        #int_score = 0
         keys = list(self.nodes.keys())
         for n in keys:
             tot += self.nodes[n].get_in_degree()
-            int_score += self.nodes[n].get_interaction_score()
+            #int_score += self.nodes[n].get_interaction_score()
         self.tot_in_degrees = tot
-        self.tot_interaction_score = len(keys) * int_score
+        self.tot_interaction_score = len(keys) * self.interaction_score_rng
         # we want the word metric denominator to grow similar to tot_in_degrees
         # so that the probabilities are similar when selecting a node
         self.tot_word_metric = len(keys) * (self.word_metric_rng/2.0)
@@ -82,7 +85,7 @@ class SNA_Model:
     def get_node_similarity_prob(self, created_node, test_node):
         score1 = created_node.get_word_metric()
         score2 = test_node.get_word_metric()
-        return (1 - abs(score1 - score2))/self.tot_word_metric
+        return (self.word_metric_rng - abs(score1 - score2))/self.tot_word_metric
 
     def get_interaction_score_prob(self, node):
         return node.get_interaction_score() / self.tot_interaction_score
@@ -103,12 +106,15 @@ class SNA_Model:
 
     # this is for the recommended nodes (target nodes). Implement random activation,
     # this might prove to be too slow.
-    def get_good_match(self, node_to_match, weights=(.3, .3, .4)):
+    def get_good_match(self, node_to_match, in_degree_wt, similarity_wt,
+                       interaction_wt):
         keys = list(self.nodes.keys())
         # picks nodes randomly and get attachment prob to test for selection
         # using the interactions score
         cnt = 0
-        while True or cnt > 100000:
+
+
+        while True or cnt > 1000000:
             k = random.choice(keys)
             if k != node_to_match.get_name():
                 test_node = self.nodes[k]
@@ -118,10 +124,13 @@ class SNA_Model:
                 roll = random.random()
                 # these percentages (.3, .3, .34) would be interesting
                 # to adjust for different results
-                prob = weights[0]*prob + weights[1]*sim + weights[2]*interaction
+                prob = (in_degree_wt*prob + similarity_wt*sim +
+                        interaction_wt*interaction)
                 if prob >= roll:
+                    self.file_ref.write("{}, {:.7f}, {:.7}, {:.7}\n".format(k, prob, sim, interaction))
                     return self.nodes[k]
                 cnt += 1
+
 
     def get_better_match(self, node_to_match, old_target_node):
         keys = list(self.nodes.keys())

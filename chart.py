@@ -14,13 +14,22 @@ class Histo:
 
     def update_plot(self, data):
         self.degAx.cla()
-
         self.degAx.set_xlabel("Log2(Node In-Degree)")
         self.degAx.set_ylabel("Log2(Node Count)")
         plt.title("In-degree/Word Similarity/Interaction")
         self.degAx.hist(np.log2(data), log=True, bins=self.n_bins)
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
+
+    def final_plot(self, data):
+        self.degAx.cla()
+        self.degAx.set_xlabel("Log2(Node In-Degree)")
+        self.degAx.set_ylabel("Log2(Node Count)")
+        plt.title("In-degree/Word Similarity/Interaction")
+        self.degAx.hist(np.log2(data), log=True, bins=self.n_bins)
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        plt.show(block=True)
 
 
 # h = Histo()

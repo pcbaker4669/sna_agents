@@ -38,11 +38,11 @@
 # of attachment.  This showed in the data for the 12K and 22K networks significantly.
 # correcting the problem
 
-# Objective 3: 3/28/2024 (not done yet)
+# Objective 3: 3/31/2024
 # Previously, the model matched the best parent with the created node
 # based on word_metric similarity.  But nodes should also be "selected" based
 # on similarity, as well as interactions (currently only in-degree for interactions).
-# Pass the node created into the get_popular_match and calculate an attachment
+# Pass the node created into the get_good_match and calculate an attachment
 # probability based on similarity score and interaction (get_node_att_prob)
 # use weighting so that one score doesn't crush the other score
 # weight_for_original_prob = 0.5
@@ -60,36 +60,58 @@
 # a selection and have roughly equal weight. The result is a scale-free network
 # which is very close to the original.
 
-# Objective 5: When the network is created, add one more metric which is
-# interation score.  0 is when no-one even looks at the video (the lowest score),
+# Objective 5: When the network is being created, add one more metric which is
+# interaction score.  0 is when no-one even looks at the video (the lowest score),
 # 10 would be like, share, watch all, comment.  Create network using the interaction
 # score with the in-degree and similarity, randomly assign the interaction score
-# on creation and use it in the
-# get_better_match function to find the match.  We will pass in the weights for
-# in-degree, word-similarity, and the interaction score (weight = (.3, .3, .34)).
-# The interaction score will be normalized much like the degree where the node's
-# interaction score will be divided by the total of all interactions in the graph
-# The resulting network is still a scale-free network with little change to the
+# on creation and use it in the get_good_match (previously get_best_match) function
+# to find the match.  We will pass in the weights for in-degree, word-similarity,
+# and the interaction score (weight = (.3, .3, .34)).  The interaction score will be
+# normalized much like the degree where the node's interaction score will be divided
+# by the total of all interactions in the graph.  The resulting network is still a scale-free network with little change to the
 # overall structure.
 
 # Objective 6 (4/3/2024): create an updating graph that can "run" updates.  For the
 # sake of reducing complexity, no new nodes will be added to the graph
-# while we run update.  Implementing a visualization mechanism to see how in-degree
-# distribution changes for the updates.  Currently, when running the graph, the network
-# increases nodes with large in-degree.  How will this change with increasing the weight
-# on word similarity?
+# while we run updates.  Implementing a visualization mechanism to see how in-degree
+# distribution changes for the updates.  Currently, when creating the graph, the network
+# increases nodes with large in-degree.  How will this change with basing changes on
+# interaction and word similarity?  Discovered the removing edges will break the network
+
+# Objective 7 (4/6/2024): The network update runs randomly pick an edges.  Then
+# get the source node and the target node, find a node that matches word-similarity
+# and has higher interactions (not in-degree but the psuedo-user interactions) and
+# create an edge to the better match.  This softens the scale-free structure somewhat
+# however, the nodes with the largest in-degrees have higher probability of being
+# selected as source.  Perhaps I should randomly pick whether the node being changed is
+# source or target.  Additionally, since this is "agent based", I feel that the
+# model should pick a random node and not rely on the edges.  I would like in-degree
+# to play a role but not using the actual edge.
+#
+# Objective 8: (4/7/2024) Adding a rule on the updates, still updating source and
+# old target node to new target node the same.  If the old target node and the source
+# node both have high enough degrees, remove the edge.  The rule is:
+# if source node has out-degree > 2 - okay to remove edge AND
+# if old target node has in-degree > 2 - okay to remove edge
+# this should help prevent our graph from breaking, the net gain will be more edges
+# though
 
 import networkx as nx
 import agent as ag
 import chart
 import random
+import scipy
 
 start_node_num = 4
 tot_nodes = 100
 fileNumber = 1
 export_edge_table_flag = True
 export_graph_metrics_flag = False
-weights = [.33, .34, .33]
+do_run_modifications = False
+num_of_run_modifications = 10
+in_degree_wt = .33
+similarity_wt = .33
+interaction_wt = .34
 
 def export_graph():
     edges = g.edges
@@ -109,16 +131,20 @@ def export_graph_metrics():
     nodes = sna_model.get_nodes()
     keys = nodes.keys()
     page_rank = dict(nx.pagerank(g))
+    ecc = {}
+    try:
+        ecc = dict(nx.eccentricity(g))
+    except nx.NetworkXException:
+        print("eccentricity error!!")
     for k in keys:
         node = nodes[k]
         in_deg = g.in_degree(node.get_name())
         out_deg = g.out_degree(node.get_name())
         deg = g.degree(node.get_name())
-        ecc = dict(nx.eccentricity(g, v=[k]))
 
-        s = ("{}, {}, {}, {}, {}, {:.5f}, {}, {}\n".
-             format(node.get_name(), in_deg, out_deg, deg,
-                    ecc[k], page_rank[k], sna_model.get_nodes()[k].get_word_metric(),
+        s = ("{}, {}, {}, {}, {}, {:.8f}, {}, {}\n".
+             format(node.get_name(), in_deg, out_deg, deg, ecc[k],
+                    page_rank[k], sna_model.get_nodes()[k].get_word_metric(),
                     sna_model.get_nodes()[k].get_interaction_score()))
         f_ref.write(s)
 
@@ -155,7 +181,8 @@ def add_node_to_graph():
 
     # find recommended nodes the new node will point to first before
     # we find a parent.
-    best_match = sna_model.get_good_match(new_node, weights)
+    best_match = sna_model.get_good_match(new_node, in_degree_wt,
+                                          similarity_wt, interaction_wt)
     g.add_edge(new_node.get_name(), best_match.get_name())
     # print("best match for new node {} is {}"
     #       .format(new_node.get_name(), best_match.get_name()))
@@ -202,7 +229,7 @@ def modify_graph(num_of_edges):
         src_out_degree = g.out_degree(source_node.get_name())
         # if old_target_node has out-degree > 1 it's okay to remove
         old_tgt_in_degree = g.in_degree(old_target_node.get_name())
-        if src_out_degree > 1 and old_tgt_in_degree > 1:
+        if src_out_degree > 2 and old_tgt_in_degree > 2:
             g.remove_edge(*e)
             edges_removed += 1
 
@@ -245,7 +272,28 @@ if export_metrics == 't':
     export_graph_metrics_flag = True
 else:
     export_graph_metrics_flag = False
+print("4. Do run modifications? (0 is no, > 0 is the number of runs)")
+do_run_modifications = int(input())
+print("5. Weight of in-degree (.33 default)")
+try:
+    in_degree_wt = float(input())
+except ValueError:
+    print("in-degree default to .33")
+    in_degree_wt = .33
 
+print("6. Weight of similarity (.33 default)")
+try:
+    similarity_wt = float(input())
+except ValueError:
+    print("similarity default to .33")
+    similarity_wt = .33
+
+print("6. Weight of Interaction (.4 default)")
+try:
+    interaction_wt = float(input())
+except ValueError:
+    print("Interaction default to .34")
+    interaction_wt = .34
 
 g = nx.DiGraph()
 sna_model = ag.SNA_Model()
@@ -256,17 +304,26 @@ go()
 if export_edge_table_flag:
     export_graph()
 
-h = chart.Histo()
+h = None
+if do_run_modifications > 0:
+    h = chart.Histo()
 
 original_list = sna_model.get_in_degree_lst()[:]
-
-for i in range(20):
-    modify_graph(5)
-    data = sna_model.get_in_degree_lst()
+edge_changes_per_update = tot_nodes * .05
+in_degree_data_org = sna_model.get_in_degree_lst()
+for i in range(do_run_modifications):
+    modify_graph(edge_changes_per_update)
+    in_degree_data = sna_model.get_in_degree_lst()
     print("i = ", i)
-    h.update_plot(data)
+    h.update_plot(in_degree_data)
     fileNumber = i + 1
+    if export_graph_metrics_flag:
+        export_graph_metrics()
+if do_run_modifications == 0:
     if export_graph_metrics_flag:
         export_graph_metrics()
 print("start network = ", original_list)
 print("end network = ", sna_model.get_in_degree_lst())
+if do_run_modifications == 0:
+    h = chart.Histo()
+h.final_plot(in_degree_data_org)
