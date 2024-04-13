@@ -140,37 +140,28 @@ def add_node_to_graph():
     sna_model.update_graph_totals()
 
 
-# This function is used to update the network
-# it takes a number of edges to modify in the network, randomly picks number of
-# edges from "num_of_edges".  For each edge selected, get the source node, and it's
-# target node, pick a new node, if the similarity score and interaction score is
-# higher than the old target, remove the edge from the graph is if it doesn't cause
-# a disconnected graph, and add edge to the new target.
-# find a new node for the source node to point to
-def modify_graph(num_of_edges):
-    edge_lst = []
-    edges_from_graph = list(g.edges)
-    random.shuffle(edges_from_graph)
-    edge_mod_cnt = 0
-    edges_removed = 0
+# This function is used to update the network and find more similar nodes
+def modify_graph(num_of_nodes):
+    nodes_in_graph = sna_model.get_nodes()
+    keys = list(nodes_in_graph.keys())
+    random.choice(keys)
 
     # for each selected edge, get the source node, remove the edge
-    while edge_mod_cnt < num_of_edges:
-        e = edges_from_graph[edge_mod_cnt]
-        source_node = sna_model.get_nodes()[e[0]]
-        old_target_node = sna_model.get_nodes()[e[1]]
+    for idx in range(num_of_nodes):
+        k = random.choice(keys)
+        source_node = nodes_in_graph[k]
+
+        # get out edges from node, all nodes should have an out edge
+        edge_lst = list(g.out_edges(source_node.get_name()))
+        choice_edge = random.choice(edge_lst)
+        old_target_node = nodes_in_graph[choice_edge[1]]
+
+        # find out edge and get the target node
         new_match = sna_model.get_better_match(source_node, old_target_node)
+        if g.in_degree(old_target_node.get_name()) > 1 and g.out_degree(source_node.get_name()) > 1:
+            g.remove_edge(source_node.get_name(), old_target_node.get_name())
 
-        # remove the old edge, check to avoid making graph disconnected
-        # if source_node has in-degree > 1, it's okay to remove
-        src_out_degree = g.out_degree(source_node.get_name())
-        # if old_target_node has out-degree > 1 it's okay to remove
-        old_tgt_in_degree = g.in_degree(old_target_node.get_name())
-        if src_out_degree > 2 and old_tgt_in_degree > 2:
-            g.remove_edge(*e)
-            edges_removed += 1
-
-        # find a new match, now we are using interaction scores
+        # find a new match, now we are using similarity scores
         g.add_edge(source_node.get_name(), new_match.get_name())
         src_degree_in = g.in_degree(source_node.get_name())
         source_node.set_in_degree(src_degree_in)
@@ -179,7 +170,6 @@ def modify_graph(num_of_edges):
         new_match_degree_in = g.in_degree(new_match.get_name())
         new_match.set_in_degree(new_match_degree_in)
         sna_model.update_graph_totals()
-        edge_mod_cnt += 1
 
 
 def go():
@@ -238,12 +228,12 @@ if do_run_modifications > 0:
     h = chart.Histo()
 
 original_list = sna_model.get_in_degree_lst()[:]
-edge_changes_per_update = tot_nodes * .05
+edge_changes_per_update = int(tot_nodes * .05)
 in_degree_data_org = sna_model.get_in_degree_lst()
 for i in range(do_run_modifications):
     modify_graph(edge_changes_per_update)
     in_degree_data = sna_model.get_in_degree_lst()
-    print("i = ", i)
+    print("i = ", i, "changes per update: ", edge_changes_per_update)
     h.update_plot(in_degree_data)
     fileNumber = i + 1
     if export_graph_metrics_flag:
