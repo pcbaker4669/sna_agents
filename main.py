@@ -1,100 +1,38 @@
 # Primary Objective: To model a social network recommendation
 # system similar to YouTube where network structure is a hybrid
 # scale-free network.
-# Objective 1: 3_23_2024 - Create a free scale network
-# where choices for recommended nodes are based on a node's interaction score,
-# the interaction score is only based on in-degree. But we will want to
-# add a similarity score also.  Additionally, a user interaction score would
-# be desirable which would mimic users doing: view, click, share, comment,
-# and watch time.
+# Summary: To create an agent-based model for social network community analysis using
+# YouTube data as a reference.
 
+# The model will be based on empirical data collected by scraping YouTube data.
+# First, we go to a creator’s video list, collect the featured videos, and collect
+# the videos recommended based on the selection of the video.  There is a theme to
+# the recommendations that contributes and predicts the formation of communities in
+# the network.  Recreating the community formation is the objective of the model.
 
-# Testing will start with only 5 nodes.  The start_node_num is set to 4 to
-# allow an initial network, strongly connected, with everyone having an
-# in-degree of one.  The tot_nodes is set to 5 (initially) and will be increased.
-# The produced networks will be viewed in Gephi (network analysis software) to observe
-# proper construction of a scale-free graph.  Before I add other selection
-# metrics, I would like to see the formation of a Barabási–Albert (BA)
-# scale-free network model
+# Each YouTube scrape per creator is placed into Gephi network analysis tool and
+# community partitioning is run using the modularity package.  Subsequent scrapes
+# consist of taken three randomly chosen videos in separate communities and finding
+# that creators page and repeating the scrape.  Chaining the scrapes from a video that
+# is in the original set ensures that the sample network will be complete but allows us
+# to branch out and increase our sample data.
 
-# Updates
-# Noticed that a new_node can select itself for a parent, removing this
-# possibility
-# The scale free network is not forming correctly for high degree nodes,
-# there is still a scale-free structure, but graphs of 6000 nodes should have
-# a few nodes with 100's of in-degree.  Continuing
+# It should be possible to create an agent-based model that forms the hybrid scale-free
+# network similar to YouTube and creates communities of similar size and structure with
+# a small number of parameters.  Agents will maintain information about similarity which
+# will be the driver for community formation.  The network will be created based on node
+# selection of “in-degree”, as well as matching similarity.  Initially, interaction
+# scores were added but have been discarded as community formation is now the objective.
+# Once the network is created, runs will be performed that allows nodes to find better
+# matching on similarity.  Nodes will select other nodes at random and connect to better
+# nodes.
 
+# Currently, similarity is based on a single score which represents a value that
+# has been obtained by some work pattern matching algorithm.  Initially, I used integers
+# from 0-99 and randomly assigned nodes a word metric score. However, having a discrete
+# value does not scale well.  The similarity score (word-metric) will be real numbers
+# from 0-1 and categories have more flexibility for growth.
 
-# Objective 2: 3/24/2024
-# Lets modify the selection process so that a similarity score
-# will play into account for at least the parent node.  Lets find
-# the best match for the parent
-
-# Correction 1: 3/28/2024
-# Noticed a lack of preferred attachment with large networks.  The problem
-# with the preferred attachment probability is I didn't account for
-# the probability of attachment to get so low. When converting to percent,
-# I inadvertantly rounded so that everything under 1% had the same probability
-# of attachment.  This showed in the data for the 12K and 22K networks significantly.
-# correcting the problem
-
-# Objective 3: 3/31/2024
-# Previously, the model matched the best parent with the created node
-# based on word_metric similarity.  But nodes should also be "selected" based
-# on similarity, as well as interactions (currently only in-degree for interactions).
-# Pass the node created into the get_good_match and calculate an attachment
-# probability based on similarity score and interaction (get_node_att_prob)
-# use weighting so that one score doesn't crush the other score
-# weight_for_original_prob = 0.5
-# weight_for_similarity_score = 0.5
-# prob = (original_prob * weight_for_original_prob) +
-#                      (similarity_score * weight_for_similarity_score)
-#
-#
-
-# Objective 4: The similarity probability selection needs to be adjusted because
-# it is too high and squashes the interaction probability.  Decided to use the
-# following calculation for similarity probability:  (1 - abs(score1 - score2))/self.tot_word_metric
-# this will place the selection probability on the same order of magnitude as
-# the in-degree probability.  We can then multiply the probabilities when making
-# a selection and have roughly equal weight. The result is a scale-free network
-# which is very close to the original.
-
-# Objective 5: When the network is being created, add one more metric which is
-# interaction score.  0 is when no-one even looks at the video (the lowest score),
-# 10 would be like, share, watch all, comment.  Create network using the interaction
-# score with the in-degree and similarity, randomly assign the interaction score
-# on creation and use it in the get_good_match (previously get_best_match) function
-# to find the match.  We will pass in the weights for in-degree, word-similarity,
-# and the interaction score (weight = (.3, .3, .34)).  The interaction score will be
-# normalized much like the degree where the node's interaction score will be divided
-# by the total of all interactions in the graph.  The resulting network is still a scale-free network with little change to the
-# overall structure.
-
-# Objective 6 (4/3/2024): create an updating graph that can "run" updates.  For the
-# sake of reducing complexity, no new nodes will be added to the graph
-# while we run updates.  Implementing a visualization mechanism to see how in-degree
-# distribution changes for the updates.  Currently, when creating the graph, the network
-# increases nodes with large in-degree.  How will this change with basing changes on
-# interaction and word similarity?  Discovered the removing edges will break the network
-
-# Objective 7 (4/6/2024): The network update runs randomly pick an edges.  Then
-# get the source node and the target node, find a node that matches word-similarity
-# and has higher interactions (not in-degree but the psuedo-user interactions) and
-# create an edge to the better match.  This softens the scale-free structure somewhat
-# however, the nodes with the largest in-degrees have higher probability of being
-# selected as source.  Perhaps I should randomly pick whether the node being changed is
-# source or target.  Additionally, since this is "agent based", I feel that the
-# model should pick a random node and not rely on the edges.  I would like in-degree
-# to play a role but not using the actual edge.
-#
-# Objective 8: (4/7/2024) Adding a rule on the updates, still updating source and
-# old target node to new target node the same.  If the old target node and the source
-# node both have high enough degrees, remove the edge.  The rule is:
-# if source node has out-degree > 2 - okay to remove edge AND
-# if old target node has in-degree > 2 - okay to remove edge
-# this should help prevent our graph from breaking, the net gain will be more edges
-# though
 
 import networkx as nx
 import agent as ag
@@ -111,7 +49,7 @@ do_run_modifications = False
 num_of_run_modifications = 10
 in_degree_wt = .33
 similarity_wt = .33
-interaction_wt = .34
+
 
 def export_graph():
     edges = g.edges
@@ -124,9 +62,9 @@ def export_graph():
 
 def export_graph_metrics():
     f_ref = open(f"Metrics{tot_nodes}_{fileNumber}.csv", "w")
-    s = ("{}, {}, {}, {}, {}, {}, {}, {}\n"
+    s = ("{}, {}, {}, {}, {}, {}, {}\n"
          .format("Id", "In-Degree", "Out-Degree", "Degree",
-                 "Eccentricity", "PageRank", "Word-Metric", "Interaction-Score"))
+                 "Eccentricity", "PageRank", "Word-Metric"))
     f_ref.write(s)
     nodes = sna_model.get_nodes()
     keys = nodes.keys()
@@ -142,10 +80,9 @@ def export_graph_metrics():
         out_deg = g.out_degree(node.get_name())
         deg = g.degree(node.get_name())
 
-        s = ("{}, {}, {}, {}, {}, {:.8f}, {}, {}\n".
+        s = ("{}, {}, {}, {}, {}, {:.8f}, {}\n".
              format(node.get_name(), in_deg, out_deg, deg, ecc[k],
-                    page_rank[k], sna_model.get_nodes()[k].get_word_metric(),
-                    sna_model.get_nodes()[k].get_interaction_score()))
+                    page_rank[k], sna_model.get_nodes()[k].get_word_metric()))
         f_ref.write(s)
 
     f_ref.close()
@@ -182,7 +119,7 @@ def add_node_to_graph():
     # find recommended nodes the new node will point to first before
     # we find a parent.
     best_match = sna_model.get_good_match(new_node, in_degree_wt,
-                                          similarity_wt, interaction_wt)
+                                          similarity_wt)
     g.add_edge(new_node.get_name(), best_match.get_name())
     # print("best match for new node {} is {}"
     #       .format(new_node.get_name(), best_match.get_name()))
@@ -243,8 +180,6 @@ def modify_graph(num_of_edges):
         new_match.set_in_degree(new_match_degree_in)
         sna_model.update_graph_totals()
         edge_mod_cnt += 1
-        #print("edges modified: {} edges removed: {}"
-        #      .format(edge_mod_cnt, edges_removed))
 
 
 def go():
@@ -288,12 +223,6 @@ except ValueError:
     print("similarity default to .33")
     similarity_wt = .33
 
-print("6. Weight of Interaction (.4 default)")
-try:
-    interaction_wt = float(input())
-except ValueError:
-    print("Interaction default to .34")
-    interaction_wt = .34
 
 g = nx.DiGraph()
 sna_model = ag.SNA_Model()
@@ -301,8 +230,8 @@ sna_model = ag.SNA_Model()
 setup()
 go()
 
-if export_edge_table_flag:
-    export_graph()
+# if export_edge_table_flag:
+#     export_graph()
 
 h = None
 if do_run_modifications > 0:
@@ -324,6 +253,9 @@ if do_run_modifications == 0:
         export_graph_metrics()
 print("start network = ", original_list)
 print("end network = ", sna_model.get_in_degree_lst())
+if export_edge_table_flag:
+    export_graph()
+
 if do_run_modifications == 0:
     h = chart.Histo()
 h.final_plot(in_degree_data_org)

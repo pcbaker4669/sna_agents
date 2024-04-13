@@ -2,11 +2,10 @@ import random
 
 
 class Agent:
-    def __init__(self, name, in_degree, word_metric, interaction_score):
+    def __init__(self, name, in_degree, word_metric):
         self.name = name
         self.in_degree = in_degree
         self.word_metric = word_metric
-        self.interaction_score = interaction_score
 
     def set_in_degree(self, in_degree):
         self.in_degree = in_degree
@@ -26,15 +25,6 @@ class Agent:
     def sort_priority(self):
         return self.word_metric
 
-    def get_interaction_score(self):
-        return self.interaction_score
-
-    # interaction will be a combination of view, like and share on a
-    # scale from 0-10.  0 was user passed, i.e. no click
-    def set_interaction_score(self, interaction_score):
-        self.interaction_score = interaction_score
-
-
     def get_name(self):
         return self.name
 
@@ -49,28 +39,20 @@ class SNA_Model:
         self.count = 0
         self.nodes = {}
         self.tot_in_degrees = 0
-        self.word_metric_rng = 100
-        self.match_threshold = .25
+        self.word_metric_rng = 1
         self.tot_word_metric = 0
-        self.tot_interaction_score = 0
-        self.interaction_score_rng = 10
-        self.file_ref = open("prob_scores_1000.csv", "w")
-        s = "Id, In-degree, Word Sim, Interaction\n"
-        self.file_ref.write(s)
 
     def update_graph_totals(self):
         tot = 0
-        #int_score = 0
+
         keys = list(self.nodes.keys())
         for n in keys:
             tot += self.nodes[n].get_in_degree()
-            #int_score += self.nodes[n].get_interaction_score()
         self.tot_in_degrees = tot
-        self.tot_interaction_score = len(keys) * self.interaction_score_rng
+
         # we want the word metric denominator to grow similar to tot_in_degrees
         # so that the probabilities are similar when selecting a node
         self.tot_word_metric = len(keys) * (self.word_metric_rng/2.0)
-
 
     def get_count(self):
         return self.count
@@ -86,9 +68,6 @@ class SNA_Model:
         score1 = created_node.get_word_metric()
         score2 = test_node.get_word_metric()
         return (self.word_metric_rng - abs(score1 - score2))/self.tot_word_metric
-
-    def get_interaction_score_prob(self, node):
-        return node.get_interaction_score() / self.tot_interaction_score
 
     # get a parent, this choice will be from similarity, right now
     # it is random
@@ -106,13 +85,11 @@ class SNA_Model:
 
     # this is for the recommended nodes (target nodes). Implement random activation,
     # this might prove to be too slow.
-    def get_good_match(self, node_to_match, in_degree_wt, similarity_wt,
-                       interaction_wt):
+    def get_good_match(self, node_to_match, in_degree_wt, similarity_wt):
         keys = list(self.nodes.keys())
         # picks nodes randomly and get attachment prob to test for selection
         # using the interactions score
         cnt = 0
-
 
         while True or cnt > 1000000:
             k = random.choice(keys)
@@ -120,17 +97,14 @@ class SNA_Model:
                 test_node = self.nodes[k]
                 prob = self.get_node_att_prob(test_node)
                 sim = self.get_node_similarity_prob(node_to_match, test_node)
-                interaction = self.get_interaction_score_prob(test_node)
+
                 roll = random.random()
                 # these percentages (.3, .3, .34) would be interesting
                 # to adjust for different results
-                prob = (in_degree_wt*prob + similarity_wt*sim +
-                        interaction_wt*interaction)
+                prob = (in_degree_wt*prob + similarity_wt*sim)
                 if prob >= roll:
-                    self.file_ref.write("{}, {:.7f}, {:.7}, {:.7}\n".format(k, prob, sim, interaction))
                     return self.nodes[k]
                 cnt += 1
-
 
     def get_better_match(self, node_to_match, old_target_node):
         keys = list(self.nodes.keys())
@@ -142,22 +116,16 @@ class SNA_Model:
             if k != node_to_match.get_name():
                 test_node = self.nodes[k]
                 test_sim = self.get_node_similarity_prob(node_to_match, test_node)
-                test_interaction = self.get_interaction_score_prob(test_node)
                 old_sim = self.get_node_similarity_prob(node_to_match, old_target_node)
-                old_interaction = self.get_interaction_score_prob(old_target_node)
-                # to adjust for different results
-                test_score = 0.5 * test_sim + 0.5 * test_interaction
-                old_score = 0.5 * old_sim + 0.5 * old_interaction
-                if test_score >= old_score:
+                if test_sim >= old_sim:
                     return self.nodes[k]
                 cnt += 1
 
     def create_rnd_node(self):
         name = self.count
         in_degree = 0
-        word_score = random.randint(0, self.word_metric_rng)
-        interaction_score = random.randint(0, self.interaction_score_rng)
-        node = Agent(name, in_degree, word_score, interaction_score)
+        word_score = random.random()
+        node = Agent(name, in_degree, word_score)
         keys = self.nodes.keys()
         if name not in keys:
             self.nodes[name] = node
@@ -180,7 +148,6 @@ class SNA_Model:
         for k in keys:
             lst.append(self.nodes[k].get_in_degree())
         return lst
-
 
     def __str__(self):
         s = ''
