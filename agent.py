@@ -1,5 +1,5 @@
 import random
-
+import numpy as np
 
 class Agent:
     def __init__(self, name, in_degree, word_metric):
@@ -35,12 +35,19 @@ class Agent:
 
 class SNA_Model:
 
-    def __init__(self):
+    def __init__(self, pool_size):
         self.count = 0
         self.nodes = {}
         self.tot_in_degrees = 0
         self.word_metric_rng = 1
         self.tot_word_metric = 0
+        self.node_pool = []
+
+    def create_node_pool(self, pool_size):
+        for i in range(pool_size):
+            node = self.create_rnd_node()
+            self.node_pool.append(node)
+
 
     def update_graph_totals(self):
         tot = 0
@@ -69,30 +76,18 @@ class SNA_Model:
         score2 = test_node.get_word_metric()
         return (self.word_metric_rng - abs(score1 - score2))/self.tot_word_metric
 
-    # get a parent, this choice will be from similarity, right now
-    # it is random
-    def get_parent_for_new_node(self, node):
-        keys = list(self.nodes.keys())
-        keys.remove(node.get_name())
-        min_diff = self.word_metric_rng
-        best_key = None
-        for k in keys:
-            diff = abs(node.get_word_metric() - self.nodes[k].get_word_metric())
-            if diff <= min_diff:
-                min_diff = diff
-                best_key = k
-        return self.nodes[best_key]
+
 
     # this is for the recommended nodes (target nodes). Implement random activation,
     # this might prove to be too slow.
     def get_good_match(self, node_to_match, in_degree_wt, similarity_wt):
-        keys = list(self.nodes.keys())
+
         # picks nodes randomly and get attachment prob to test for selection
         # using the interactions score
         cnt = 0
 
         while True or cnt > 1000000:
-            k = random.choice(keys)
+            k = random.choice(self.node_pool)
             if k != node_to_match.get_name():
                 test_node = self.nodes[k]
                 prob = self.get_node_att_prob(test_node)
@@ -106,20 +101,18 @@ class SNA_Model:
                     return self.nodes[k]
                 cnt += 1
 
-    def get_better_match(self, node_to_match, old_target_node):
-        keys = list(self.nodes.keys())
-        # picks nodes randomly and get attachment prob to test for selection
-        # using the interactions score
-        cnt = 0
-        while True or cnt > 100000:
-            k = random.choice(keys)
-            if k != node_to_match.get_name():
-                test_node = self.nodes[k]
-                test_sim = self.get_node_similarity_prob(node_to_match, test_node)
-                old_sim = self.get_node_similarity_prob(node_to_match, old_target_node)
-                if test_sim >= old_sim:
-                    return self.nodes[k]
-                cnt += 1
+    def create_start_node(self, mean, sigma):
+        name = self.count
+        in_degree = 0
+        word_score = np.random.normal(mean, sigma)
+        node = Agent(name, in_degree, word_score)
+        keys = self.nodes.keys()
+        if name not in keys:
+            self.nodes[name] = node
+        else:
+            print("error: node already exits {}".format(name))
+        self.count += 1
+        return node
 
     def create_rnd_node(self):
         name = self.count
