@@ -147,39 +147,40 @@ def add_node_to_graph():
 # higher than the old target, remove the edge from the graph is if it doesn't cause
 # a disconnected graph, and add edge to the new target.
 # find a new node for the source node to point to
-def modify_graph(num_of_edges):
-    edge_lst = []
-    edges_from_graph = list(g.edges)
-    random.shuffle(edges_from_graph)
-    edge_mod_cnt = 0
-    edges_removed = 0
+def modify_graph(num_of_nodes):
+    all_nodes = sna_model.get_nodes()
+    keys = list(all_nodes.keys())
+    node_mod_cnt = 0
+    while node_mod_cnt < num_of_nodes:
+        node_mod_cnt += 1
+        k = random.choice(keys)
+        source_node = all_nodes[k]
+        print("node to change", source_node.get_name(), ", out deg: ", g.out_degree(source_node.get_name()))
+        # get worst match of source node
+        edges = g.out_edges([source_node.get_name()])
+        print("edges in node to change = ", edges)
+        lst_to_check = []
+        for e in edges:
+            lst_to_check.append(all_nodes[e[1]])
 
-    # for each selected edge, get the source node, remove the edge
-    while edge_mod_cnt < num_of_edges:
-        e = edges_from_graph[edge_mod_cnt]
-        source_node = sna_model.get_nodes()[e[0]]
-        old_target_node = sna_model.get_nodes()[e[1]]
-        new_match = sna_model.get_better_match(source_node, old_target_node)
+        old_target_node = sna_model.get_least_sim_from_lst(source_node, lst_to_check)
+        new_match = sna_model.get_better_match(source_node, old_target_node,
+                                                   in_degree_wt, similarity_wt)
 
-        # remove the old edge, check to avoid making graph disconnected
-        # if source_node has in-degree > 1, it's okay to remove
         src_out_degree = g.out_degree(source_node.get_name())
         # if old_target_node has out-degree > 1 it's okay to remove
         old_tgt_in_degree = g.in_degree(old_target_node.get_name())
-        if src_out_degree > 2 and old_tgt_in_degree > 2:
-            g.remove_edge(*e)
-            edges_removed += 1
+        if src_out_degree > 1 and old_tgt_in_degree > 1:
+            g.remove_edge(source_node.get_name(), old_target_node.get_name())
 
-        # find a new match, now we are using interaction scores
+        # attach a new match
         g.add_edge(source_node.get_name(), new_match.get_name())
-        src_degree_in = g.in_degree(source_node.get_name())
-        source_node.set_in_degree(src_degree_in)
+
         old_tgt_degree_in = g.in_degree(old_target_node.get_name())
         old_target_node.set_in_degree(old_tgt_degree_in)
         new_match_degree_in = g.in_degree(new_match.get_name())
         new_match.set_in_degree(new_match_degree_in)
         sna_model.update_graph_totals()
-        edge_mod_cnt += 1
 
 
 def go():
@@ -209,20 +210,19 @@ else:
     export_graph_metrics_flag = False
 print("4. Do run modifications? (0 is no, > 0 is the number of runs)")
 do_run_modifications = int(input())
-print("5. Weight of in-degree (.33 default)")
+print("5. Weight of in-degree (.5 default)")
 try:
     in_degree_wt = float(input())
 except ValueError:
-    print("in-degree default to .33")
-    in_degree_wt = .33
+    print("in-degree default to .5")
+    in_degree_wt = .5
 
-print("6. Weight of similarity (.33 default)")
+print("6. Weight of similarity (.5 default)")
 try:
     similarity_wt = float(input())
 except ValueError:
-    print("similarity default to .33")
-    similarity_wt = .33
-
+    print("similarity default to .5")
+    similarity_wt = .5
 
 g = nx.DiGraph()
 sna_model = ag.SNA_Model()
@@ -239,7 +239,7 @@ if do_run_modifications > 0:
 
 original_list = sna_model.get_in_degree_lst()[:]
 edge_changes_per_update = tot_nodes * .05
-in_degree_data_org = sna_model.get_in_degree_lst()
+
 for i in range(do_run_modifications):
     modify_graph(edge_changes_per_update)
     in_degree_data = sna_model.get_in_degree_lst()
@@ -258,4 +258,4 @@ if export_edge_table_flag:
 
 if do_run_modifications == 0:
     h = chart.Histo()
-h.final_plot(in_degree_data_org)
+h.final_plot(sna_model.get_in_degree_lst())

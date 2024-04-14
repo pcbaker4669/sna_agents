@@ -6,29 +6,32 @@ import numpy as np
 # Create a random number generator with a fixed seed for reproducibility
 
 class Histo:
-    def __init__(self):
+    def __init__(self, d_bins=5, mod_bins=5):
         self.n_bins = 5
         plt.ion()
-        self.fig, self.degAx = plt.subplots(1, 1, sharey=True, tight_layout=True)
+        self.fig, self.ax = plt.subplots(1, 2, sharey=True, tight_layout=True)
 
 
     def update_plot(self, data):
-        self.degAx.cla()
-        self.degAx.set_xlabel("Log2(Node In-Degree)")
-        self.degAx.set_ylabel("Log2(Node Count)")
+        self.ax[0].cla()
+        self.ax[0].set_xlabel("Log2(Node In-Degree)")
+        self.ax[0].set_ylabel("Log2(Node Count)")
         plt.title("In-degree/Word Similarity/Interaction")
-        self.degAx.hist(np.log2(data), log=True, bins=self.n_bins)
+        self.ax[0].hist(np.log2(data), log=True, bins=self.n_bins)
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+        # this will be modularity
+        self.ax[1].cla()
+        self.ax[1].set_xlabel("Community Group")
+        self.ax[1].set_ylabel("Count)")
+        plt.title("Community Members")
+        self.ax[1].hist(np.log2(data), log=True, bins=self.n_bins)
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
     def final_plot(self, data):
-        self.degAx.cla()
-        self.degAx.set_xlabel("Log2(Node In-Degree)")
-        self.degAx.set_ylabel("Log2(Node Count)")
-        plt.title("In-degree/Word Similarity/Interaction")
-        self.degAx.hist(np.log2(data), log=True, bins=self.n_bins)
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        self.update_plot(data)
         plt.show(block=True)
 
 

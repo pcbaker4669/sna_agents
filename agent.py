@@ -97,16 +97,26 @@ class SNA_Model:
                 test_node = self.nodes[k]
                 prob = self.get_node_att_prob(test_node)
                 sim = self.get_node_similarity_prob(node_to_match, test_node)
-
                 roll = random.random()
-                # these percentages (.3, .3, .34) would be interesting
                 # to adjust for different results
                 prob = (in_degree_wt*prob + similarity_wt*sim)
                 if prob >= roll:
                     return self.nodes[k]
                 cnt += 1
 
-    def get_better_match(self, node_to_match, old_target_node):
+    def get_least_sim_from_lst(self, node_to_match, lst_of_nodes):
+        print("list of nodes for finding a replacement:", lst_of_nodes)
+        worst_score = 0
+        node_to_return = None
+        for n in lst_of_nodes:
+            test_sim = self.get_node_similarity_prob(node_to_match, n)
+            if test_sim >= worst_score:
+                worst_score = test_sim
+                node_to_return = n
+        return node_to_return
+
+    def get_better_match(self, node_to_match, old_target_node,
+                         in_degree_wt, similarity_wt):
         keys = list(self.nodes.keys())
         # picks nodes randomly and get attachment prob to test for selection
         # using the interactions score
@@ -117,7 +127,11 @@ class SNA_Model:
                 test_node = self.nodes[k]
                 test_sim = self.get_node_similarity_prob(node_to_match, test_node)
                 old_sim = self.get_node_similarity_prob(node_to_match, old_target_node)
-                if test_sim >= old_sim:
+                test_prob = self.get_node_att_prob(test_node)
+                old_prob = self.get_node_att_prob(old_target_node)
+                test_score = (in_degree_wt * test_prob + similarity_wt * test_sim)
+                old_score = (in_degree_wt * old_prob + similarity_wt * old_sim)
+                if test_score >= old_score:
                     return self.nodes[k]
                 cnt += 1
 
