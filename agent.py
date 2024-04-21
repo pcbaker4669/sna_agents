@@ -1,4 +1,6 @@
 import random
+import numpy as np
+random.seed(123)
 
 
 class Agent:
@@ -6,6 +8,13 @@ class Agent:
         self.name = name
         self.in_degree = in_degree
         self.word_metric = word_metric
+        self.community = -1
+
+    def set_community(self, community):
+        self.community = community
+
+    def get_community(self):
+        return self.community
 
     def set_in_degree(self, in_degree):
         self.in_degree = in_degree
@@ -41,10 +50,13 @@ class SNA_Model:
         self.tot_in_degrees = 0
         self.word_metric_rng = 1
         self.tot_word_metric = 0
+        self.community_groups_means = {}
+        self.community_groups_std = {}
+        self.community_groups_cnt = {}
+        self.mean_std_dev_of_com_by_run = []
 
     def update_graph_totals(self):
         tot = 0
-
         keys = list(self.nodes.keys())
         for n in keys:
             tot += self.nodes[n].get_in_degree()
@@ -69,8 +81,9 @@ class SNA_Model:
         score2 = test_node.get_word_metric()
         return (self.word_metric_rng - abs(score1 - score2))/self.tot_word_metric
 
-    # get a parent, this choice will be from similarity, right now
-    # it is random
+    # get a parent, this choice will be from similarity with no in-degree
+    # attachment influence to soften the free-scale structure and increase
+    # the community structure
     def get_parent_for_new_node(self, node):
         keys = list(self.nodes.keys())
         keys.remove(node.get_name())
@@ -83,57 +96,60 @@ class SNA_Model:
                 best_key = k
         return self.nodes[best_key]
 
-    # this is for the recommended nodes (target nodes). Implement random activation,
-    # this might prove to be too slow.
+    # this is for the recommended agents (target nodes). Implement random
+    # activation, this might prove to be too slow for large models.
     def get_good_match(self, node_to_match, in_degree_wt, similarity_wt):
         keys = list(self.nodes.keys())
-        # picks nodes randomly and get attachment prob to test for selection
-        # using the interactions score
+        # picks nodes randomly and calculates attachment prob to test
+        # for selection
         cnt = 0
-
-        while True or cnt > 1000000:
+        keys.remove(node_to_match.get_name())
+        while cnt < 1000000:
             k = random.choice(keys)
             if k != node_to_match.get_name():
                 test_node = self.nodes[k]
                 prob = self.get_node_att_prob(test_node)
                 sim = self.get_node_similarity_prob(node_to_match, test_node)
                 roll = random.random()
-                # to adjust for different results
+                # Weighting between in_degree and similarity
                 prob = (in_degree_wt*prob + similarity_wt*sim)
                 if prob >= roll:
                     return self.nodes[k]
                 cnt += 1
+        # we didn't find a node, the network is getting stable
+        return None
 
     def get_least_sim_from_lst(self, node_to_match, lst_of_nodes):
-        print("list of nodes for finding a replacement:", lst_of_nodes)
         worst_score = 0
         node_to_return = None
         for n in lst_of_nodes:
-            test_sim = self.get_node_similarity_prob(node_to_match, n)
+            test_sim = abs(node_to_match.get_word_metric() - n.get_word_metric())
             if test_sim >= worst_score:
                 worst_score = test_sim
                 node_to_return = n
         return node_to_return
 
-    def get_better_match(self, node_to_match, old_target_node,
-                         in_degree_wt, similarity_wt):
+    def get_better_match(self, node_to_match, old_target_node, exclude_lst=()):
         keys = list(self.nodes.keys())
-        # picks nodes randomly and get attachment prob to test for selection
-        # using the interactions score
-        cnt = 0
-        while True or cnt > 100000:
-            k = random.choice(keys)
-            if k != node_to_match.get_name():
+        keys.remove(node_to_match.get_name())
+        keys.remove(old_target_node.get_name())
+        for e in exclude_lst:
+            if e.get_name() in keys:
+                keys.remove(e.get_name())
+        for i in range(100):
+            random.shuffle(keys)
+            for k in keys:
                 test_node = self.nodes[k]
-                test_sim = self.get_node_similarity_prob(node_to_match, test_node)
-                old_sim = self.get_node_similarity_prob(node_to_match, old_target_node)
-                test_prob = self.get_node_att_prob(test_node)
-                old_prob = self.get_node_att_prob(old_target_node)
-                test_score = (in_degree_wt * test_prob + similarity_wt * test_sim)
-                old_score = (in_degree_wt * old_prob + similarity_wt * old_sim)
-                if test_score >= old_score:
-                    return self.nodes[k]
-                cnt += 1
+                diff_new = (node_to_match.get_word_metric() -
+                            test_node.get_word_metric())
+                diff_old = (node_to_match.get_word_metric() -
+                            old_target_node.get_word_metric())
+                if abs(diff_new) < abs(diff_old):
+                    test_prob = self.get_node_att_prob(test_node)
+                    roll = random.random()
+                    if test_prob >= roll:
+                        return self.nodes[k]
+        return None
 
     def create_rnd_node(self):
         name = self.count
@@ -162,6 +178,41 @@ class SNA_Model:
         for k in keys:
             lst.append(self.nodes[k].get_in_degree())
         return lst
+
+    def update_communities(self, com_lst):
+        com_group = 0
+        self.community_groups_means[com_group] = {}
+        self.community_groups_std[com_group] = {}
+        std_per_run_for_group = []
+        # each com_lst is a list of node names in a community
+        # go through each list, find the node and assign it a
+        # community number list 0 is comm 0, etc
+        for com in com_lst:
+            word_metrics_for_com = []
+            for idx in com:
+                self.nodes[idx].set_community(com_group)
+                word_metrics_for_com.append(self.nodes[idx].get_word_metric())
+
+            self.community_groups_cnt[com_group] = len(com)
+            self.community_groups_means[com_group] = (
+                    sum(word_metrics_for_com)/len(com))
+            self.community_groups_std[com_group] = np.std(word_metrics_for_com)
+
+            com_group += 1
+        self.mean_std_dev_of_com_by_run.append(
+            sum(self.community_groups_std)/len(self.community_groups_std))
+
+    def get_mean_std_dev_of_com_by_run(self):
+        return self.mean_std_dev_of_com_by_run
+
+    def get_community_means(self):
+        return self.community_groups_means
+
+    def get_community_std(self):
+        return self.community_groups_std
+
+    def get_community_cnt(self):
+        return self.community_groups_cnt
 
     def __str__(self):
         s = ''

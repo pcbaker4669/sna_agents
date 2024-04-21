@@ -12,26 +12,26 @@ class Histo:
         self.fig, self.ax = plt.subplots(1, 2, sharey=True, tight_layout=True)
 
 
-    def update_plot(self, data):
+    def update_plot(self, hdata, mdata):
         self.ax[0].cla()
         self.ax[0].set_xlabel("Log2(Node In-Degree)")
         self.ax[0].set_ylabel("Log2(Node Count)")
-        plt.title("In-degree/Word Similarity/Interaction")
-        self.ax[0].hist(np.log2(data), log=True, bins=self.n_bins)
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        self.ax[0].set_title("In-degree/Word Similarity/Interaction")
+        self.ax[0].hist(np.log2(hdata), log=True, bins=self.n_bins)
+        # self.fig.canvas.draw()
+        # self.fig.canvas.flush_events()
 
         # this will be modularity
         self.ax[1].cla()
         self.ax[1].set_xlabel("Community Group")
         self.ax[1].set_ylabel("Count)")
-        plt.title("Community Members")
-        self.ax[1].hist(np.log2(data), log=True, bins=self.n_bins)
+        self.ax[1].set_title("Community Members")
+        self.ax[1].hist(mdata, bins=self.n_bins)
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
-    def final_plot(self, data):
-        self.update_plot(data)
+    def final_plot(self, hdata, mdata):
+        self.update_plot(hdata, mdata)
         plt.show(block=True)
 
 
