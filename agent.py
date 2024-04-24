@@ -136,7 +136,7 @@ class SNA_Model:
         for e in exclude_lst:
             if e.get_name() in keys:
                 keys.remove(e.get_name())
-        for i in range(100):
+        for i in range(500):
             random.shuffle(keys)
             for k in keys:
                 test_node = self.nodes[k]
@@ -199,8 +199,9 @@ class SNA_Model:
             self.community_groups_std[com_group] = np.std(word_metrics_for_com)
 
             com_group += 1
-        self.mean_std_dev_of_com_by_run.append(
-            sum(self.community_groups_std)/len(self.community_groups_std))
+        val = sum(self.community_groups_std.values())/len(self.community_groups_std.keys())
+        self.mean_std_dev_of_com_by_run.append(val)
+        print("std or this run: ", val)
 
     def get_mean_std_dev_of_com_by_run(self):
         return self.mean_std_dev_of_com_by_run

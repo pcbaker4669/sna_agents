@@ -64,11 +64,12 @@ def export_run_data():
     f_ref = open(f"Comm_{tot_nodes}_R{fileNumber}.csv", "w")
     f_ref.write("Run, Std Dev\n")
     run_count = 0
-    print("data = ", data)
+
     for d in data:
         f_ref.write("{}, {:.5f}\n".format(run_count, d))
         run_count += 1
     f_ref.close()
+
 
 # Create start_node_num, initially 4, each node is pointing to
 # the next node in a loop to ensure the graph is connected and
@@ -77,7 +78,7 @@ def setup():
     n = []
     for i in range(0, start_node_num):
         starter_node = sna_model.create_rnd_node()
-        coefficient = i/start_node_num + 1/(2 + start_node_num)
+        coefficient = i / start_node_num + 1 / (2 + start_node_num)
         print("coefficient =", coefficient)
         starter_node.set_word_metric(coefficient)
         n.append(starter_node)
@@ -138,7 +139,7 @@ def modify_graph(num_of_nodes):
 
         old_target_node = sna_model.get_least_sim_from_lst(source_node, lst_to_check)
         if old_target_node is None:
-            print("no target node found to remove")
+            print("target node removed skipped", old_tgt_skipped)
             old_tgt_skipped += 1
             continue
 
@@ -150,6 +151,8 @@ def modify_graph(num_of_nodes):
         if old_tgt_in_degree > 1:
             new_match = sna_model.get_better_match(source_node, old_target_node, lst_to_check)
             if new_match is None:
+                print("new_nodes_skipped {}, total modified {}, cnt this run {}"
+                      .format(new_nodes_skipped, tot_mods, node_mod_cnt))
                 new_nodes_skipped += 1
                 continue
             g.add_edge(source_node.get_name(), new_match.get_name())
@@ -242,36 +245,30 @@ h = None
 #     h = chart.Histo()
 
 original_list = sna_model.get_in_degree_lst()[:]
-
-
+do_community_detection()
 edge_changes_per_update = tot_nodes * .05
 community_enum_for_graph = []
 for i in range(do_run_modifications):
     modify_graph(edge_changes_per_update)
     print("--- run number: ", i, " ---")
     do_community_detection()
-    #in_degree_data = sna_model.get_in_degree_lst()
+    # in_degree_data = sna_model.get_in_degree_lst()
     # h.update_plot(in_degree_data, community_enum_for_graph)
     fileNumber = i + 1
     # if i % 10 == 0:
     #     print("run number: ", i)
 
-do_community_detection()
-
 if export_graph_metrics_flag:
     export_graph_metrics()
     export_run_data()
-if do_run_modifications == 0:
-    if export_graph_metrics_flag:
-        export_graph_metrics()
+
 print("start network = ", original_list)
 print("end network = ", sna_model.get_in_degree_lst())
 if export_edge_table_flag:
     export_graph("fin_")
 
-if do_run_modifications == 0:
-    h = chart.Histo()
+# if do_run_modifications == 0:
+#     h = chart.Histo()
 # h.final_plot(sna_model.get_in_degree_lst(), community_enum_for_graph)
 print("tot mods: {}, rm: {}, add:{}, old_sk: {}, new_sk: {}"
       .format(tot_mods, removals, edge_adds, old_tgt_skipped, new_nodes_skipped))
-
