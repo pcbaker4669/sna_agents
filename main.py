@@ -5,10 +5,12 @@
 # YouTube data as a reference.
 
 import networkx as nx
+import numpy as np
+
 import agent as ag
 import chart
 import random
-
+# originally 123
 random.seed(123)
 
 start_node_num = 4
@@ -17,6 +19,7 @@ fileNumber = 1
 export_edge_table_flag = True
 export_graph_metrics_flag = False
 do_run_modifications = False
+do_att_prob_logging = False
 num_of_run_modifications = 10
 in_degree_wt = .33
 similarity_wt = .33
@@ -70,6 +73,30 @@ def export_run_data():
         run_count += 1
     f_ref.close()
 
+    data = sna_model.get_community_run_metrics_for_each_all_groups()
+    f_ref = open(f"CG_{tot_nodes}_R{fileNumber}.csv", "w")
+    f_ref.write("Community, Count, Mean, Std Dev\n")
+
+    for d in data:
+        f_ref.write(d)
+    f_ref.close()
+
+    # attachment probabilities
+    if do_att_prob_logging:
+        deg_att_data = sna_model.get_in_degree_att_probs_log()
+        sim_att_data = sna_model.get_wm_sim_att_probs_log()
+        print("size of att_data = ", len(deg_att_data))
+        f_ref = open(f"Probability_{tot_nodes}_R{fileNumber}.csv", "w")
+        f_ref.write("# Agents, Mean In-deg, Men Sim, Std In-Deg, Std Sim, Connections\n")
+        d_count = len(deg_att_data)
+        sm_count = len(sim_att_data)
+        d_avg = sum(deg_att_data)/d_count
+        sm_avg = sum(sim_att_data)/sm_count
+        d_std = np.std(deg_att_data)
+        sm_std = np.std(sim_att_data)
+        f_ref.write("{}, {}, {}, {}, {}, {}\n"
+                    .format(tot_nodes, d_avg, sm_avg, d_std, sm_std, d_count))
+        f_ref.close()
 
 # Create start_node_num, initially 4, each node is pointing to
 # the next node in a loop to ensure the graph is connected and
@@ -231,8 +258,15 @@ except ValueError:
     print("Resolution default to 1")
     res = 1
 
+print("8. Attachment Probability Logging? (t or f, f default)")
+l_val = input()
+if l_val == 't':
+    do_att_prob_logging = True
+else:
+    do_att_prob_logging = False
+
 g = nx.DiGraph()
-sna_model = ag.SNA_Model()
+sna_model = ag.SNA_Model(do_att_prob_logging)
 
 setup()
 go()

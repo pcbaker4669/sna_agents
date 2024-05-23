@@ -44,7 +44,7 @@ class Agent:
 
 class SNA_Model:
 
-    def __init__(self):
+    def __init__(self, logging=False):
         self.count = 0
         self.nodes = {}
         self.tot_in_degrees = 0
@@ -54,6 +54,9 @@ class SNA_Model:
         self.community_groups_std = {}
         self.community_groups_cnt = {}
         self.mean_std_dev_of_com_by_run = []
+        self.in_degree_att_probs_log = []
+        self.wm_sim_att_probs_log = []
+        self.logging = logging
 
     def update_graph_totals(self):
         tot = 0
@@ -73,13 +76,19 @@ class SNA_Model:
         return self.nodes
 
     def get_node_att_prob(self, node):
-        return node.get_in_degree() / self.tot_in_degrees
+        val = node.get_in_degree() / self.tot_in_degrees
+        if self.logging:
+            self.in_degree_att_probs_log.append(val)
+        return val
 
     #
     def get_node_similarity_prob(self, created_node, test_node):
         score1 = created_node.get_word_metric()
         score2 = test_node.get_word_metric()
-        return (self.word_metric_rng - abs(score1 - score2))/self.tot_word_metric
+        val = (self.word_metric_rng - abs(score1 - score2)) / self.tot_word_metric
+        if self.logging:
+            self.wm_sim_att_probs_log.append(val)
+        return val
 
     # get a parent, this choice will be from similarity with no in-degree
     # attachment influence to soften the free-scale structure and increase
@@ -100,8 +109,6 @@ class SNA_Model:
     # activation, this might prove to be too slow for large models.
     def get_good_match(self, node_to_match, in_degree_wt, similarity_wt):
         keys = list(self.nodes.keys())
-        # picks nodes randomly and calculates attachment prob to test
-        # for selection
         cnt = 0
         keys.remove(node_to_match.get_name())
         while cnt < 1000000:
@@ -133,6 +140,7 @@ class SNA_Model:
         keys = list(self.nodes.keys())
         keys.remove(node_to_match.get_name())
         keys.remove(old_target_node.get_name())
+        # ex
         for e in exclude_lst:
             if e.get_name() in keys:
                 keys.remove(e.get_name())
@@ -206,6 +214,16 @@ class SNA_Model:
     def get_mean_std_dev_of_com_by_run(self):
         return self.mean_std_dev_of_com_by_run
 
+    def get_community_run_metrics_for_each_all_groups(self):
+        stat_strs = []
+        for idx in range(len(self.community_groups_cnt)):
+            cnt = self.community_groups_cnt[idx]
+            mean = self.community_groups_means[idx]
+            std = self.community_groups_std[idx]
+            s = "{}, {}, {:.6f}, {:.6f}\n".format(idx, cnt, mean, std)
+            stat_strs.append(s)
+        return stat_strs
+
     def get_community_means(self):
         return self.community_groups_means
 
@@ -214,6 +232,12 @@ class SNA_Model:
 
     def get_community_cnt(self):
         return self.community_groups_cnt
+
+    def get_in_degree_att_probs_log(self):
+        return self.in_degree_att_probs_log
+
+    def get_wm_sim_att_probs_log(self):
+        return self.wm_sim_att_probs_log
 
     def __str__(self):
         s = ''
