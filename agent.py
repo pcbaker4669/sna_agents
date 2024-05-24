@@ -1,5 +1,6 @@
 import random
 import numpy as np
+
 random.seed(123)
 
 
@@ -67,7 +68,7 @@ class SNA_Model:
 
         # we want the word metric denominator to grow similar to tot_in_degrees
         # so that the probabilities are similar when selecting a node
-        self.tot_word_metric = len(keys) * (self.word_metric_rng/2.0)
+        self.tot_word_metric = len(keys) * (self.word_metric_rng / 2.0)
 
     def get_count(self):
         return self.count
@@ -90,41 +91,29 @@ class SNA_Model:
             self.wm_sim_att_probs_log.append(val)
         return val
 
-    # get a parent, this choice will be from similarity with no in-degree
-    # attachment influence to soften the free-scale structure and increase
-    # the community structure
-    def get_parent_for_new_node(self, node):
+    # get a parent, set tries to be some number passed in (later)
+    def get_good_match(self, node_to_match, selection_mult):
         keys = list(self.nodes.keys())
-        keys.remove(node.get_name())
-        min_diff = self.word_metric_rng
-        best_key = None
-        for k in keys:
-            diff = abs(node.get_word_metric() - self.nodes[k].get_word_metric())
-            if diff <= min_diff:
-                min_diff = diff
-                best_key = k
-        return self.nodes[best_key]
-
-    # this is for the recommended agents (target nodes). Implement random
-    # activation, this might prove to be too slow for large models.
-    def get_good_match(self, node_to_match, in_degree_wt, similarity_wt):
-        keys = list(self.nodes.keys())
-        cnt = 0
         keys.remove(node_to_match.get_name())
-        while cnt < 1000000:
-            k = random.choice(keys)
-            if k != node_to_match.get_name():
-                test_node = self.nodes[k]
-                prob = self.get_node_att_prob(test_node)
-                sim = self.get_node_similarity_prob(node_to_match, test_node)
+        tries = selection_mult * len(keys)
+        current_key = random.choice(keys)
+        current_node = self.nodes[current_key]
+        cnt = 0
+        while cnt < tries:
+            cnt += 1
+            test_key = random.choice(keys)
+            test_node = self.nodes[test_key]
+            diff_test = (node_to_match.get_word_metric() -
+                         test_node.get_word_metric())
+            diff_current = (node_to_match.get_word_metric() -
+                            current_node.get_word_metric())
+            if abs(diff_test) < abs(diff_current):
+                test_prob = self.get_node_att_prob(test_node)
                 roll = random.random()
-                # Weighting between in_degree and similarity
-                prob = (in_degree_wt*prob + similarity_wt*sim)
-                if prob >= roll:
-                    return self.nodes[k]
-                cnt += 1
-        # we didn't find a node, the network is getting stable
-        return None
+                if test_prob >= roll:
+                    current_node = test_node
+        return current_node
+
 
     def get_least_sim_from_lst(self, node_to_match, lst_of_nodes):
         worst_score = 0
@@ -203,11 +192,11 @@ class SNA_Model:
 
             self.community_groups_cnt[com_group] = len(com)
             self.community_groups_means[com_group] = (
-                    sum(word_metrics_for_com)/len(com))
+                    sum(word_metrics_for_com) / len(com))
             self.community_groups_std[com_group] = np.std(word_metrics_for_com)
 
             com_group += 1
-        val = sum(self.community_groups_std.values())/len(self.community_groups_std.keys())
+        val = sum(self.community_groups_std.values()) / len(self.community_groups_std.keys())
         self.mean_std_dev_of_com_by_run.append(val)
         print("std or this run: ", val)
 

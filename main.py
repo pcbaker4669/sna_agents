@@ -8,7 +8,6 @@ import networkx as nx
 import numpy as np
 
 import agent as ag
-import chart
 import random
 # originally 123
 random.seed(123)
@@ -32,7 +31,7 @@ tot_mods = 0
 
 def export_graph(prefix):
     edges = g.edges
-    f_ref = open(f"{prefix}_EdgeTbl_{tot_nodes}_D{in_degree_wt}_W{similarity_wt}_{fileNumber}.csv", "w")
+    f_ref = open(f"{prefix}_EdgeTbl_{tot_nodes}_SeleM_{selection_mult}_{fileNumber}.csv", "w")
     f_ref.write("Source, Target, Link\n")
     for e in edges:
         f_ref.write("{}, {}, {}\n".format(e[0], e[1], "1"))
@@ -40,7 +39,7 @@ def export_graph(prefix):
 
 
 def export_graph_metrics():
-    f_ref = open(f"M{tot_nodes}_R{fileNumber}_D{in_degree_wt}_S{similarity_wt}.csv", "w")
+    f_ref = open(f"M{tot_nodes}_R{fileNumber}_SeleM_{selection_mult}.csv", "w")
     s = ("{}, {}, {}, {}, {}, {}\n"
          .format("Id", "In-Degree", "Out-Degree", "Degree",
                  "Community Group", "Word-Metric"))
@@ -64,7 +63,7 @@ def export_graph_metrics():
 
 def export_run_data():
     data = sna_model.get_mean_std_dev_of_com_by_run()
-    f_ref = open(f"Comm_{tot_nodes}_R{fileNumber}.csv", "w")
+    f_ref = open(f"Comm_{tot_nodes}_R{fileNumber}_SeleM_{selection_mult}.csv", "w")
     f_ref.write("Run, Std Dev\n")
     run_count = 0
 
@@ -74,7 +73,7 @@ def export_run_data():
     f_ref.close()
 
     data = sna_model.get_community_run_metrics_for_each_all_groups()
-    f_ref = open(f"CG_{tot_nodes}_R{fileNumber}.csv", "w")
+    f_ref = open(f"CG_{tot_nodes}_R{fileNumber}_SeleM_{selection_mult}.csv", "w")
     f_ref.write("Community, Count, Mean, Std Dev\n")
 
     for d in data:
@@ -86,16 +85,18 @@ def export_run_data():
         deg_att_data = sna_model.get_in_degree_att_probs_log()
         sim_att_data = sna_model.get_wm_sim_att_probs_log()
         print("size of att_data = ", len(deg_att_data))
-        f_ref = open(f"Probability_{tot_nodes}_R{fileNumber}.csv", "w")
+        f_ref = open(f"Probability_{tot_nodes}_R{fileNumber}_SeleM_{selection_mult}.csv", "w")
         f_ref.write("# Agents, Mean In-deg, Men Sim, Std In-Deg, Std Sim, Connections\n")
         d_count = len(deg_att_data)
         sm_count = len(sim_att_data)
-        d_avg = sum(deg_att_data)/d_count
-        sm_avg = sum(sim_att_data)/sm_count
-        d_std = np.std(deg_att_data)
-        sm_std = np.std(sim_att_data)
-        f_ref.write("{}, {}, {}, {}, {}, {}\n"
-                    .format(tot_nodes, d_avg, sm_avg, d_std, sm_std, d_count))
+        if d_count > 0 and sm_count > 0:
+            d_avg = sum(deg_att_data)/d_count
+            sm_avg = sum(sim_att_data)/sm_count
+
+            d_std = np.std(deg_att_data)
+            sm_std = np.std(sim_att_data)
+            f_ref.write("{}, {}, {}, {}, {}, {}\n"
+                        .format(tot_nodes, d_avg, sm_avg, d_std, sm_std, d_count))
         f_ref.close()
 
 # Create start_node_num, initially 4, each node is pointing to
@@ -106,7 +107,7 @@ def setup():
     for i in range(0, start_node_num):
         starter_node = sna_model.create_rnd_node()
         coefficient = i / start_node_num + 1 / (2 + start_node_num)
-        print("coefficient =", coefficient)
+        print("word metric coefficient =", coefficient)
         starter_node.set_word_metric(coefficient)
         n.append(starter_node)
         g.add_node(n[i].get_name())
@@ -129,10 +130,9 @@ def add_node_to_graph():
     # the sna_model adds the node to the dictionary of nodes
     new_node = sna_model.create_rnd_node()
     g.add_node(new_node.get_name())
-    good_match = sna_model.get_good_match(new_node, in_degree_wt,
-                                          similarity_wt)
+    good_match = sna_model.get_good_match(new_node, selection_mult)
     g.add_edge(new_node.get_name(), good_match.get_name())
-    parent_match = sna_model.get_parent_for_new_node(new_node)
+    parent_match = sna_model.get_good_match(new_node, selection_mult)
     g.add_edge(parent_match.get_name(), new_node.get_name())
 
     good_match.set_in_degree(g.in_degree(good_match.get_name()))
@@ -186,7 +186,7 @@ def modify_graph(num_of_nodes):
             new_match_degree_in = g.in_degree(new_match.get_name())
             new_match.set_in_degree(new_match_degree_in)
         else:
-            parent_match = sna_model.get_parent_for_new_node(old_target_node)
+            parent_match = sna_model.get_good_match(old_target_node, selection_mult)
             g.add_edge(parent_match.get_name(), old_target_node.get_name())
         g.remove_edge(source_node.get_name(), old_target_node.get_name())
 
@@ -231,34 +231,27 @@ if export_metrics == 't':
 else:
     export_graph_metrics_flag = False
 
+print("4. Match Selection Multiplier (default 20")
+try:
+    selection_mult = int(input())
+except ValueError:
+    selection_mult = 20
+
 print("4. Do run modifications? (default 0, > 0 is the number of runs)")
 try:
     do_run_modifications = int(input())
 except ValueError:
     do_run_modifications = 0
 
-print("5. Weight of in-degree (.5 default)")
-try:
-    in_degree_wt = float(input())
-except ValueError:
-    print("in-degree default to .5")
-    in_degree_wt = .5
 
-print("6. Weight of similarity (.5 default)")
-try:
-    similarity_wt = float(input())
-except ValueError:
-    print("similarity default to .5")
-    similarity_wt = .5
-
-print("7. Modularity Resolution (1 default)")
+print("5. Modularity Resolution (1 default)")
 try:
     res = float(input())
 except ValueError:
     print("Resolution default to 1")
     res = 1
 
-print("8. Attachment Probability Logging? (t or f, f default)")
+print("6. Attachment Probability Logging? (t or f, f default)")
 l_val = input()
 if l_val == 't':
     do_att_prob_logging = True
