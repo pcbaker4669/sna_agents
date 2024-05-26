@@ -9,6 +9,7 @@ import numpy as np
 
 import agent as ag
 import random
+
 # originally 123
 random.seed(123)
 
@@ -20,8 +21,7 @@ export_graph_metrics_flag = False
 do_run_modifications = False
 do_att_prob_logging = False
 num_of_run_modifications = 10
-in_degree_wt = .33
-similarity_wt = .33
+
 removals = 0
 new_nodes_skipped = 0
 edge_adds = 0
@@ -186,7 +186,10 @@ def modify_graph(num_of_nodes):
             new_match_degree_in = g.in_degree(new_match.get_name())
             new_match.set_in_degree(new_match_degree_in)
         else:
-            parent_match = sna_model.get_good_match(old_target_node, selection_mult)
+            # need to find a better match for the old target, swap nodes,
+            # old_target is the node to match, need. something to be source_node
+            # no exclusion list
+            parent_match = sna_model.get_better_match(old_target_node, source_node)
             g.add_edge(parent_match.get_name(), old_target_node.get_name())
         g.remove_edge(source_node.get_name(), old_target_node.get_name())
 
